@@ -1,5 +1,6 @@
 import { app, type BrowserWindow, type WebContents } from 'electron'
 import type { CrashReportBreadcrumbData } from '../../shared/crash-reporting'
+import { rendererCrashBreadcrumbOrigin } from '../../shared/crash-breadcrumb-origin'
 import { recordDurableCrashBreadcrumb } from './durable-crash-breadcrumb'
 import { collectProcessGoneMetricDetails } from './process-gone-diagnostics'
 
@@ -20,7 +21,8 @@ type Hang = { startedAt: number; ticks: number; samples: number; lastStack: stri
 
 /** Reduces file:// frames to the bundle file so install paths (user names) never reach reports. */
 export function scrubJsCallStack(stack: string): string {
-  return stack.replace(/\bfile:\/\/[^\s()]*\/([^/\s()]+)/g, '$1').trim()
+  // Greedy to the last '/': URL paths keep '(' unescaped (e.g. `Bob%20(Work)`), so stopping there leaks the rest.
+  return stack.replace(/\bfile:\/\/\S*\/([^/\s()]+)/g, '$1').trim()
 }
 
 async function collectJsStack(webContents: WebContents): Promise<CrashReportBreadcrumbData> {
@@ -58,6 +60,10 @@ export function installRendererUnresponsiveBreadcrumb(window: BrowserWindow): {
   dispose: () => void
 } {
   const webContents = window.webContents
+  // Scoped to this renderer so popout and guest crash reports never carry the main window's hang.
+  const origin = rendererCrashBreadcrumbOrigin(webContents.id)
+  const record = (name: string, data: CrashReportBreadcrumbData): void =>
+    recordDurableCrashBreadcrumb(name, data, undefined, origin)
   let probeToken = 0
   let probe: { token: number; ticks: number; pid: number } | null = null
   let hang: Hang | null = null
@@ -79,7 +85,7 @@ export function installRendererUnresponsiveBreadcrumb(window: BrowserWindow): {
     if (typeof stack.jsStack === 'string') {
       current.lastStack = stack.jsStack
     }
-    recordDurableCrashBreadcrumb(name, {
+    record(name, {
       ...extra,
       ...metrics,
       ...(unchanged ? { jsStackUnchanged: true } : stack),
@@ -100,7 +106,7 @@ export function installRendererUnresponsiveBreadcrumb(window: BrowserWindow): {
     const ended = hang
     hang = null
     if (ended) {
-      recordDurableCrashBreadcrumb('renderer_responsive', {
+      record('renderer_responsive', {
         rendererUnresponsiveDurationMs: Date.now() - ended.startedAt,
         rendererUnresponsiveSampleCount: ended.samples
       })

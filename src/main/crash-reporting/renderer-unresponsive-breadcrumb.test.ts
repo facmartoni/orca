@@ -26,10 +26,11 @@ function fakeRendererWindow() {
   const probes: Deferred[] = []
   let pid = 4242
   const webContents = {
+    id: 12,
     isDestroyed: () => false,
     isCrashed: vi.fn(() => false),
-    isLoadingMainFrame: () => false,
-    isDevToolsOpened: () => false,
+    isLoadingMainFrame: vi.fn(() => false),
+    isDevToolsOpened: vi.fn(() => false),
     getOSProcessId: () => pid,
     executeJavaScript: vi.fn(
       () =>
@@ -89,6 +90,45 @@ describe('installRendererUnresponsiveBreadcrumb', () => {
     expect(onset?.data?.jsStack).toContain('at runawayLoop (index-B3x.js:12:345)')
     expect(JSON.stringify(onset)).not.toContain('alice')
     expect(webContents.mainFrame.collectJavaScriptCallStack).toHaveBeenCalledTimes(1)
+    watchdog.dispose()
+  })
+
+  it("scopes hang crumbs to the hung renderer so other renderers' reports never carry them", async () => {
+    const { window, probes } = fakeRendererWindow()
+    const watchdog = installRendererUnresponsiveBreadcrumb(window)
+    await advanceTicks(3)
+    probes[0]?.resolve()
+    await vi.advanceTimersByTimeAsync(0)
+
+    const names = (origin: string) => getCrashBreadcrumbSnapshot(origin).map((crumb) => crumb.name)
+    expect(names('renderer:12')).toEqual(['renderer_unresponsive', 'renderer_responsive'])
+    expect(names('renderer:99')).toEqual([])
+    watchdog.dispose()
+  })
+
+  it.each([
+    ['crashed', 'isCrashed'],
+    ['reloading', 'isLoadingMainFrame'],
+    ['paused in DevTools', 'isDevToolsOpened']
+  ] as const)('does not report a renderer that is %s', async (_label, getter) => {
+    const { window, webContents } = fakeRendererWindow()
+    webContents[getter].mockReturnValue(true)
+    const watchdog = installRendererUnresponsiveBreadcrumb(window)
+    await advanceTicks(10)
+    expect(crumbs('renderer_unresponsive')).toHaveLength(0)
+    expect(webContents.executeJavaScript).not.toHaveBeenCalled()
+    watchdog.dispose()
+  })
+
+  it('drops an open hang when the renderer starts reloading', async () => {
+    const { window, webContents } = fakeRendererWindow()
+    const watchdog = installRendererUnresponsiveBreadcrumb(window)
+    await advanceTicks(3)
+    expect(crumbs('renderer_unresponsive')).toHaveLength(1)
+
+    webContents.isLoadingMainFrame.mockReturnValue(true)
+    await advanceTicks(12)
+    expect(crumbs('renderer_unresponsive_sample')).toHaveLength(0)
     watchdog.dispose()
   })
 
@@ -160,5 +200,12 @@ describe('scrubJsCallStack', () => {
     expect(scrubJsCallStack('at f (file:///Users/bob/Orca.app/out/renderer/a.js:1:2)')).toBe(
       'at f (a.js:1:2)'
     )
+  })
+
+  it('drops install-path segments that contain parentheses', () => {
+    const scrubbed = scrubJsCallStack(
+      'at f (file:///C:/Users/Bob%20(Work)/AppData/Orca/out/renderer/a.js:1:2)\n    at file:///C:/Users/Bob%20(Work)/b.js:3:4'
+    )
+    expect(scrubbed).toBe('at f (a.js:1:2)\n    at b.js:3:4')
   })
 })
