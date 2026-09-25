@@ -18,6 +18,7 @@ import {
 import { readCodexSettingsBaseline } from './config-settings-baseline'
 import { getCodexConfigSyncStatus, reportCodexConfigSyncOutcome } from './config-sync-stall'
 import { preserveRuntimeConflictValues } from './codex-config-settings-preservation'
+import { applyCodexDaemonSocketGuard } from './codex-daemon-socket-path-guard'
 import {
   deduplicateProjectTomlSections,
   getProjectTrustLevel,
@@ -181,6 +182,12 @@ function syncSystemConfigIntoManagedCodexHomeUnsafe(
   // it would erase every ordinary setting from an existing managed runtime, and
   // a 0-byte file is what a half-written or unhydrated cloud-synced home shows.
   if (rawSystemConfig.trim() === '') {
+    // Why: no mirror write happens here, but the daemon guard must still land.
+    const runtimeConfigBefore = runtimeConfigExists ? runtimeConfigObservation.value : null
+    const guarded = applyCodexDaemonSocketGuard(runtimeConfigBefore ?? '', runtimeHomePath)
+    if (guarded !== (runtimeConfigBefore ?? '')) {
+      writeFileAtomicallyIfUnchanged(runtimeConfigPath, runtimeConfigBefore, guarded)
+    }
     return runtimeConfigExists
       ? { status: 'skipped-missing-source' }
       : { status: 'mirrored', preservedConflictKeys: new Set() }
@@ -190,7 +197,10 @@ function syncSystemConfigIntoManagedCodexHomeUnsafe(
   if (!runtimeConfigExists) {
     writeFileAtomically(
       runtimeConfigPath,
-      prepareSystemConfigForFreshRuntimeMirror(rawSystemConfig, sourceConfigDir)
+      applyCodexDaemonSocketGuard(
+        prepareSystemConfigForFreshRuntimeMirror(rawSystemConfig, sourceConfigDir),
+        runtimeHomePath
+      )
     )
     return { status: 'mirrored', preservedConflictKeys: new Set() }
   }
@@ -203,8 +213,9 @@ function syncSystemConfigIntoManagedCodexHomeUnsafe(
     mergeSystemCodexConfigIntoRuntime(runtimeConfig, systemConfig),
     promotionPlan.runtimeValuesToPreserve
   )
-  if (preserved.content !== runtimeConfig) {
-    writeFileAtomically(runtimeConfigPath, preserved.content)
+  const nextRuntimeConfig = applyCodexDaemonSocketGuard(preserved.content, runtimeHomePath)
+  if (nextRuntimeConfig !== runtimeConfig) {
+    writeFileAtomically(runtimeConfigPath, nextRuntimeConfig)
   }
   return { status: 'mirrored', preservedConflictKeys: preserved.keys }
 }

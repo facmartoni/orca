@@ -123,8 +123,17 @@ type TuiPlacementScan = {
  * table is ever defined twice.
  */
 export function upsertTuiSettingsInContent(content: string, updates: Map<string, string>): string {
+  return upsertTableSettingsInContent(content, 'tui', updates)
+}
+
+/** Same placement rule as `upsertTuiSettingsInContent`, for any single-segment table. */
+export function upsertTableSettingsInContent(
+  content: string,
+  table: string,
+  updates: Map<string, string>
+): string {
   const lines = content.split('\n')
-  const scan = scanTuiPlacement(lines, updates)
+  const scan = scanTablePlacement(lines, table, updates)
   const usesCrlf = content.includes('\r\n')
   const bareBodyInserts: string[] = []
   const dottedPreambleInserts: string[] = []
@@ -133,7 +142,7 @@ export function upsertTuiSettingsInContent(content: string, updates: Map<string,
   for (const [key, raw] of updates) {
     const dottedIndex = scan.dottedKeyIndexes.get(key)
     if (dottedIndex !== undefined) {
-      lines[dottedIndex] = withTrailingCr(lines[dottedIndex]!, `${tuiStructuredKey(key)} = ${raw}`)
+      lines[dottedIndex] = withTrailingCr(lines[dottedIndex]!, `${table}.${key} = ${raw}`)
       continue
     }
     const bareIndex = scan.bareKeyIndexes.get(key)
@@ -148,7 +157,7 @@ export function upsertTuiSettingsInContent(content: string, updates: Map<string,
     if (scan.hasBareTuiTable) {
       bareBodyInserts.push(`${key} = ${raw}`)
     } else if (scan.hasDottedTuiKey) {
-      dottedPreambleInserts.push(`${tuiStructuredKey(key)} = ${raw}`)
+      dottedPreambleInserts.push(`${table}.${key} = ${raw}`)
     } else if (!scan.blocksNewTuiTable) {
       // Why: inline/array tui definitions block this branch because adding a
       // plain [tui] beside either would make the config invalid.
@@ -160,7 +169,7 @@ export function upsertTuiSettingsInContent(content: string, updates: Map<string,
   // one insert group is non-empty; still apply EOF→body→preamble so a splice
   // never shifts a lower index a later splice depends on.
   if (newTableKeys.length > 0) {
-    appendNewTuiTable(lines, newTableKeys, usesCrlf)
+    appendNewTable(lines, table, newTableKeys, usesCrlf)
   }
   if (bareBodyInserts.length > 0) {
     lines.splice(
@@ -179,7 +188,11 @@ export function upsertTuiSettingsInContent(content: string, updates: Map<string,
   return joinPreservingTrailingNewline(lines, usesCrlf)
 }
 
-function scanTuiPlacement(lines: string[], updates: Map<string, string>): TuiPlacementScan {
+function scanTablePlacement(
+  lines: string[],
+  tableName: string,
+  updates: Map<string, string>
+): TuiPlacementScan {
   let state = createTomlLineScanState()
   let inPreamble = true
   let tuiTableSeen = false
@@ -207,7 +220,7 @@ function scanTuiPlacement(lines: string[], updates: Map<string, string>): TuiPla
           table &&
           !table.isArray &&
           table.segments.length === 1 &&
-          table.segments[0] === 'tui' &&
+          table.segments[0] === tableName &&
           !tuiTableSeen
         ) {
           tuiTableSeen = true
@@ -216,11 +229,11 @@ function scanTuiPlacement(lines: string[], updates: Map<string, string>): TuiPla
         }
         // Why: a root [[tui]] is already an array, so appending [tui] would
         // redefine it and make an otherwise valid config unparseable.
-        if (table?.isArray && table.segments.length === 1 && table.segments[0] === 'tui') {
+        if (table?.isArray && table.segments.length === 1 && table.segments[0] === tableName) {
           blocksNewTuiTable = true
         }
         const descendantKey =
-          table?.segments[0] === 'tui' && table.segments.length > 1 ? table.segments[1] : null
+          table?.segments[0] === tableName && table.segments.length > 1 ? table.segments[1] : null
         if (descendantKey && updates.has(descendantKey)) {
           blockedAbsentKeys.add(descendantKey)
         }
@@ -233,7 +246,7 @@ function scanTuiPlacement(lines: string[], updates: Map<string, string>): TuiPla
         // implicit tui table, so a new `[tui]` table at EOF would duplicate it.
         const parsed = parseTomlKeyPath(line)
         const isAssignment = parsed && line[parsed.end] === '='
-        if (isAssignment && parsed.segments[0] === 'tui' && parsed.segments.length > 1) {
+        if (isAssignment && parsed.segments[0] === tableName && parsed.segments.length > 1) {
           hasDottedTuiKey = true
           lastDottedTuiIndex = index
           const promotedKey = parsed.segments.length === 2 ? parsed.segments[1] : null
@@ -244,7 +257,11 @@ function scanTuiPlacement(lines: string[], updates: Map<string, string>): TuiPla
           if (descendantKey && updates.has(descendantKey)) {
             blockedAbsentKeys.add(descendantKey)
           }
-        } else if (isAssignment && parsed.segments.length === 1 && parsed.segments[0] === 'tui') {
+        } else if (
+          isAssignment &&
+          parsed.segments.length === 1 &&
+          parsed.segments[0] === tableName
+        ) {
           blocksNewTuiTable = true
         }
       } else if (tuiBodyActive) {
@@ -295,13 +312,18 @@ function computeBareBodyInsertIndex(
   return insertAt
 }
 
-function appendNewTuiTable(lines: string[], keyRenders: string[], usesCrlf: boolean): void {
+function appendNewTable(
+  lines: string[],
+  table: string,
+  keyRenders: string[],
+  usesCrlf: boolean
+): void {
   let appendAt = lines.length
   while (appendAt > 0 && (lines[appendAt - 1] ?? '').trim() === '') {
     appendAt -= 1
   }
   // Why: separate the new table from prior content with a blank line, unless the
   // file was empty/blank, where a leading blank would be spurious.
-  const block = appendAt > 0 ? ['', '[tui]', ...keyRenders] : ['[tui]', ...keyRenders]
+  const block = appendAt > 0 ? ['', `[${table}]`, ...keyRenders] : [`[${table}]`, ...keyRenders]
   lines.splice(appendAt, 0, ...block.map((line) => withCrLine(line, usesCrlf)))
 }
