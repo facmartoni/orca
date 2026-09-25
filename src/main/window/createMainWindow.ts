@@ -7,6 +7,7 @@ import { getBrowserClientHostId } from '../browser/browser-client-host-id'
 import { formatBrowserClientHostIdArgument } from '../../shared/browser-client-host-id-argument'
 import { markSystemSessionEnding } from '../crash-reporting/expected-teardown-state'
 import { recordDurableCrashBreadcrumb } from '../crash-reporting/durable-crash-breadcrumb'
+import { installRendererUnresponsiveBreadcrumb } from '../crash-reporting/renderer-unresponsive-breadcrumb'
 import { clearTrustedUIRendererWebContentsId, setTrustedUIRendererWebContentsId } from '../ipc/ui'
 import type { Store } from '../persistence'
 import { closeDashboardPopout } from './dashboard-popout-window'
@@ -15,6 +16,7 @@ import {
   WINDOW_QUIT_RENDERER_ACK_TIMEOUT_MS
 } from './main-window-close-lifecycle'
 import type { CreateMainWindowOptions, MainWindowLoadObserver } from './main-window-contracts'
+import { armMainDocumentCallStackPolicy } from './main-document-call-stack-policy'
 import { mainWindowLoadErrorCode } from './main-window-load-error-code'
 import { installMainWindowFocusLifecycle } from './main-window-focus-lifecycle'
 import { installMainWindowShortcutRouting } from './main-window-shortcut-routing'
@@ -34,11 +36,22 @@ import { installWindowsPathRegistryChangeListener } from '../pty/windows-path-re
 
 export { WINDOW_QUIT_RENDERER_ACK_TIMEOUT_MS }
 
+function loadPackagedMainDocument(mainWindow: BrowserWindow): Promise<void> {
+  const documentPath = join(__dirname, '../renderer/index.html')
+  try {
+    armMainDocumentCallStackPolicy(mainWindow.webContents.session, documentPath)
+  } catch (error) {
+    // Diagnostic-only: a missing opt-in must never block the window load.
+    console.warn('[window] Could not arm the JS call-stack document policy', error)
+  }
+  return mainWindow.loadFile(documentPath)
+}
+
 export function loadMainWindow(mainWindow: BrowserWindow, observer?: MainWindowLoadObserver): void {
   const load =
     is.dev && process.env.ELECTRON_RENDERER_URL
       ? mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
-      : mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+      : loadPackagedMainDocument(mainWindow)
   // Observe each load promise so failures cannot leave recovery waiting silently.
   load.then(
     () => observer?.onLoaded?.(),
@@ -190,6 +203,7 @@ export function createMainWindow(
     reloadMainWindow: (observer) => loadMainWindow(mainWindow, observer),
     rendererWebContentsId
   })
+  const rendererUnresponsiveBreadcrumb = installRendererUnresponsiveBreadcrumb(mainWindow)
   // Register after focus is initialized because the resume callback uses it.
   powerMonitor.on('resume', onSystemResume)
   installMainWindowShortcutRouting({ focus, mainWindow, opts, store })
@@ -207,6 +221,7 @@ export function createMainWindow(
     state.clearInitialRevealFallbackTimer()
     closeLifecycle.dispose()
     focus.dispose()
+    rendererUnresponsiveBreadcrumb.dispose()
     browserManager.setDictationShortcutForwardingPredicate(null)
     powerMonitor.removeListener('resume', onSystemResume)
     clearTrustedUIRendererWebContentsId(rendererWebContentsId)
