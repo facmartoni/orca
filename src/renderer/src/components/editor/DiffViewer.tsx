@@ -30,7 +30,7 @@ import { buildDiffEditorHideUnchangedOptions } from './diff-editor-hide-unchange
 import { useDiffEditorRegistration } from './diff-navigation-context'
 import { preserveDiffViewStateAcrossModelSwaps } from './diff-model-swap-view-state'
 import { monacoFindOptions } from './monaco-find-options'
-import { resolveDocumentTheme } from '@/lib/document-theme'
+import { resolveEditorTheme } from '@/lib/monaco-themes'
 
 export default function DiffViewer({
   modelKey,
@@ -354,7 +354,7 @@ export default function DiffViewer({
             language={language}
             original={originalContent}
             modified={modifiedContent}
-            theme={resolveDocumentTheme(settings?.theme ?? 'light') ? 'vs-dark' : 'vs'}
+            theme={resolveEditorTheme(settings)}
             onMount={handleMount}
             // Why: key models by tab identity and preserve the modified undo stack across Changes-mode HEAD rotations.
             originalModelPath={currentDiffModelPaths.originalModelPath}

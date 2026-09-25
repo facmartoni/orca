@@ -16,6 +16,7 @@ import { DiffSectionHeader } from './DiffSectionHeader'
 import type { DiffComment } from '../../../../shared/diff-comment-types'
 import { isDiffComment } from '@/lib/diff-comment-compat'
 import { installEditorSaveShortcut, installMonacoEditorFindShortcut } from './editor-shortcuts'
+import { resolveEditorTheme } from '@/lib/monaco-themes'
 import { DiffSectionBody } from './DiffSectionBody'
 import { useDiffSectionLayoutMetrics } from './useDiffSectionLayoutMetrics'
 import { getLiveDiffSectionRenderLimit } from './diff-section-live-render-limit'
@@ -370,6 +371,7 @@ export function DiffSectionItem({
           isBranchMode={isBranchMode}
           sideBySide={sideBySide}
           isDark={isDark}
+          theme={resolveEditorTheme(settings)}
           language={language}
           modelPathBase={modelPathBase}
           isEditable={isEditable}
