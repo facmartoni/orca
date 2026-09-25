@@ -102,15 +102,15 @@ export function upsertTopLevelSettingsInContent(
   return joinPreservingTrailingNewline(lines, usesCrlf)
 }
 
-type TuiPlacementScan = {
+type TablePlacementScan = {
   bareKeyIndexes: Map<string, number>
   dottedKeyIndexes: Map<string, number>
-  hasBareTuiTable: boolean
-  hasDottedTuiKey: boolean
-  blocksNewTuiTable: boolean
+  hasBareTable: boolean
+  hasDottedKey: boolean
+  blocksNewTable: boolean
   blockedAbsentKeys: Set<string>
   bareBodyInsertIndex: number
-  lastDottedTuiIndex: number
+  lastDottedKeyIndex: number
 }
 
 /**
@@ -150,17 +150,17 @@ export function upsertTableSettingsInContent(
       lines[bareIndex] = withTrailingCr(lines[bareIndex]!, `${key} = ${raw}`)
       continue
     }
-    // Why: adding a scalar beside an existing tui.<key> descendant would turn valid TOML invalid.
+    // Why: adding a scalar beside an existing <table>.<key> descendant would turn valid TOML invalid.
     if (scan.blockedAbsentKeys.has(key)) {
       continue
     }
-    if (scan.hasBareTuiTable) {
+    if (scan.hasBareTable) {
       bareBodyInserts.push(`${key} = ${raw}`)
-    } else if (scan.hasDottedTuiKey) {
+    } else if (scan.hasDottedKey) {
       dottedPreambleInserts.push(`${table}.${key} = ${raw}`)
-    } else if (!scan.blocksNewTuiTable) {
-      // Why: inline/array tui definitions block this branch because adding a
-      // plain [tui] beside either would make the config invalid.
+    } else if (!scan.blocksNewTable) {
+      // Why: inline/array table definitions block this branch because adding a
+      // plain [<table>] beside either would make the config invalid.
       newTableKeys.push(`${key} = ${raw}`)
     }
   }
@@ -180,7 +180,7 @@ export function upsertTableSettingsInContent(
   }
   if (dottedPreambleInserts.length > 0) {
     lines.splice(
-      scan.lastDottedTuiIndex + 1,
+      scan.lastDottedKeyIndex + 1,
       0,
       ...dottedPreambleInserts.map((line) => withCrLine(line, usesCrlf))
     )
@@ -192,16 +192,16 @@ function scanTablePlacement(
   lines: string[],
   tableName: string,
   updates: Map<string, string>
-): TuiPlacementScan {
+): TablePlacementScan {
   let state = createTomlLineScanState()
   let inPreamble = true
-  let tuiTableSeen = false
-  let tuiBodyActive = false
-  let tuiBodyHeaderIndex = -1
-  let tuiBodyEndIndex = -1
-  let hasDottedTuiKey = false
-  let blocksNewTuiTable = false
-  let lastDottedTuiIndex = -1
+  let tableSeen = false
+  let tableBodyActive = false
+  let tableBodyHeaderIndex = -1
+  let tableBodyEndIndex = -1
+  let hasDottedKey = false
+  let blocksNewTable = false
+  let lastDottedKeyIndex = -1
   const bareKeyIndexes = new Map<string, number>()
   const dottedKeyIndexes = new Map<string, number>()
   const blockedAbsentKeys = new Set<string>()
@@ -211,9 +211,9 @@ function scanTablePlacement(
     if (isTomlStructuralLine(state)) {
       const header = getTomlTableHeader(line)
       if (header) {
-        if (tuiBodyActive) {
-          tuiBodyEndIndex = index
-          tuiBodyActive = false
+        if (tableBodyActive) {
+          tableBodyEndIndex = index
+          tableBodyActive = false
         }
         const table = parseTomlTableHeaderPath(header)
         if (
@@ -221,16 +221,16 @@ function scanTablePlacement(
           !table.isArray &&
           table.segments.length === 1 &&
           table.segments[0] === tableName &&
-          !tuiTableSeen
+          !tableSeen
         ) {
-          tuiTableSeen = true
-          tuiBodyActive = true
-          tuiBodyHeaderIndex = index
+          tableSeen = true
+          tableBodyActive = true
+          tableBodyHeaderIndex = index
         }
-        // Why: a root [[tui]] is already an array, so appending [tui] would
+        // Why: a root [[<table>]] is already an array, so appending [<table>] would
         // redefine it and make an otherwise valid config unparseable.
         if (table?.isArray && table.segments.length === 1 && table.segments[0] === tableName) {
-          blocksNewTuiTable = true
+          blocksNewTable = true
         }
         const descendantKey =
           table?.segments[0] === tableName && table.segments.length > 1 ? table.segments[1] : null
@@ -242,13 +242,13 @@ function scanTablePlacement(
         continue
       }
       if (inPreamble) {
-        // Why: any dotted `tui.*` key (allowlisted or not) already defines the
-        // implicit tui table, so a new `[tui]` table at EOF would duplicate it.
+        // Why: any dotted `<table>.*` key (allowlisted or not) already defines the
+        // implicit table, so a new `[<table>]` table at EOF would duplicate it.
         const parsed = parseTomlKeyPath(line)
         const isAssignment = parsed && line[parsed.end] === '='
         if (isAssignment && parsed.segments[0] === tableName && parsed.segments.length > 1) {
-          hasDottedTuiKey = true
-          lastDottedTuiIndex = index
+          hasDottedKey = true
+          lastDottedKeyIndex = index
           const promotedKey = parsed.segments.length === 2 ? parsed.segments[1] : null
           if (promotedKey && updates.has(promotedKey)) {
             dottedKeyIndexes.set(promotedKey, index)
@@ -262,9 +262,9 @@ function scanTablePlacement(
           parsed.segments.length === 1 &&
           parsed.segments[0] === tableName
         ) {
-          blocksNewTuiTable = true
+          blocksNewTable = true
         }
-      } else if (tuiBodyActive) {
+      } else if (tableBodyActive) {
         const parsed = parseTomlKeyPath(line)
         const key = parsed?.segments.length === 1 ? parsed.segments[0] : null
         if (parsed && line[parsed.end] === '=' && key && updates.has(key)) {
@@ -278,23 +278,23 @@ function scanTablePlacement(
     }
     state = updateTomlLineScanState(state, line)
   }
-  if (tuiBodyActive) {
-    tuiBodyEndIndex = lines.length
+  if (tableBodyActive) {
+    tableBodyEndIndex = lines.length
   }
 
   return {
     bareKeyIndexes,
     dottedKeyIndexes,
-    hasBareTuiTable: tuiTableSeen,
-    hasDottedTuiKey,
-    blocksNewTuiTable,
+    hasBareTable: tableSeen,
+    hasDottedKey,
+    blocksNewTable,
     blockedAbsentKeys,
-    bareBodyInsertIndex: computeBareBodyInsertIndex(lines, tuiBodyHeaderIndex, tuiBodyEndIndex),
-    lastDottedTuiIndex
+    bareBodyInsertIndex: computeBareBodyInsertIndex(lines, tableBodyHeaderIndex, tableBodyEndIndex),
+    lastDottedKeyIndex
   }
 }
 
-// Why: TOML forbids adding bare keys to `[tui]` after a `[tui.*]` subtable opens,
+// Why: TOML forbids adding bare keys to `[<table>]` after a `[<table>.*]` subtable opens,
 // so absent keys land at the body's end — before trailing blanks and before the
 // next header — which is the only valid spot.
 function computeBareBodyInsertIndex(

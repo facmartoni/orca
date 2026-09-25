@@ -17,7 +17,11 @@ import {
   codexDaemonSocketPathExceedsLimit,
   stripCodexDaemonOverride
 } from './codex-daemon-socket-path-guard'
-import { syncSystemConfigIntoManagedCodexHome } from './codex-config-mirror'
+import {
+  syncSystemConfigIntoLegacySharedCodexHome,
+  syncSystemConfigIntoManagedCodexHome
+} from './codex-config-mirror'
+import { getCodexConfigSyncStatus } from './config-sync-stall'
 import { extractOrdinaryCodexSettings } from './config-toml-runtime-owned-sections'
 
 const UUID = '9dd962e2-449d-44c4-9733-0633f255064a'
@@ -110,6 +114,20 @@ describe('applyCodexDaemonSocketGuard', () => {
     )
   })
 
+  it('warns once instead of failing silently when inline features block the override', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const home = `${MAC_MANAGED_HOME}-inline`
+    const config = 'features = { hooks = true }\n'
+    expect(applyCodexDaemonSocketGuard(config, home, 'darwin')).toBe(config)
+    applyCodexDaemonSocketGuard(config, home, 'darwin')
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0]?.[0])).toContain('Could not turn off Codex daemon auto-start')
+    const alreadyOff = 'features = { daemon_auto_start = false }\n'
+    applyCodexDaemonSocketGuard(alreadyOff, `${home}-off`, 'darwin')
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
+  })
+
   it('never promotes the override into a seeded ~/.codex', () => {
     const guarded = applyCodexDaemonSocketGuard('model = "m"\n', MAC_MANAGED_HOME, 'darwin')
     expect(extractOrdinaryCodexSettings(guarded)).toBe('model = "m"')
@@ -160,6 +178,43 @@ describe('syncSystemConfigIntoManagedCodexHome daemon guard', () => {
     expect(readFileSync(join(runtimeHomePath, 'config.toml'), 'utf-8')).toBe(
       `[features]\n${OVERRIDE_LINE}\n`
     )
+    // A guard-only runtime config withholds no settings, so it must not raise the missing-source warning.
+    expect(getCodexConfigSyncStatus({ runtimeHomePath, systemHomePath }).state).toBe('synced')
+  })
+
+  it('mirrors a later-created ~/.codex/config.toml into a guard-only home', () => {
+    const runtimeHomePath = longHome()
+    syncSystemConfigIntoManagedCodexHome({ runtimeHomePath, systemHomePath })
+    writeFileSync(join(systemHomePath, 'config.toml'), 'model = "gpt-5"\n')
+    syncSystemConfigIntoManagedCodexHome({ runtimeHomePath, systemHomePath })
+    expect(readFileSync(join(runtimeHomePath, 'config.toml'), 'utf-8')).toBe(
+      `model = "gpt-5"\n\n[features]\n${OVERRIDE_LINE}\n`
+    )
+    expect(readFileSync(join(systemHomePath, 'config.toml'), 'utf-8')).toBe('model = "gpt-5"\n')
+  })
+
+  it('still reports a real stall when the runtime holds user settings and the source is gone', () => {
+    writeFileSync(join(systemHomePath, 'config.toml'), 'model = "gpt-5"\n')
+    const runtimeHomePath = longHome()
+    syncSystemConfigIntoManagedCodexHome({ runtimeHomePath, systemHomePath })
+    rmSync(join(systemHomePath, 'config.toml'))
+    expect(getCodexConfigSyncStatus({ runtimeHomePath, systemHomePath })).toMatchObject({
+      state: 'stalled',
+      reason: 'missing-source'
+    })
+  })
+
+  it('keeps the guard in the legacy shared home when a system launch refreshes it', () => {
+    writeFileSync(join(systemHomePath, 'config.toml'), 'model = "gpt-5"\n')
+    const runtimeHomePath = longHome()
+    writeFileSync(
+      join(runtimeHomePath, 'config.toml'),
+      `model = "old"\n\n[features]\n${OVERRIDE_LINE}\n`
+    )
+    syncSystemConfigIntoLegacySharedCodexHome({ runtimeHomePath, systemHomePath })
+    expect(readFileSync(join(runtimeHomePath, 'config.toml'), 'utf-8')).toContain(OVERRIDE_LINE)
+    expect(readFileSync(join(runtimeHomePath, 'config.toml'), 'utf-8')).toContain('model = "gpt-5"')
+    expect(readFileSync(join(systemHomePath, 'config.toml'), 'utf-8')).toBe('model = "gpt-5"\n')
   })
 
   it('leaves a short home on the default daemon behavior', () => {

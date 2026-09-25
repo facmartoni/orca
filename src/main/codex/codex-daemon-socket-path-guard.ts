@@ -28,7 +28,8 @@ export function codexDaemonSocketPath(homePath: string, platform = process.platf
     return [wsl.linuxPath.replace(/\/+$/, ''), ...DAEMON_SOCKET_SEGMENTS].join('/')
   }
   // Why: Codex canonicalizes CODEX_HOME before building the socket path, so a
-  // short symlinked alias still resolves to the long real path.
+  // short symlinked alias still resolves to the long real path. Its
+  // AbsolutePathBuf strips the Windows \\?\ prefix, so none is counted here.
   let canonical = homePath
   try {
     canonical = realpathSync.native(homePath)
@@ -49,6 +50,8 @@ export function codexDaemonSocketPathExceedsLimit(
   return Buffer.byteLength(socketPath, 'utf8') > unixSocketPathByteLimit(os)
 }
 
+const unguardableHomesWarned = new Set<string>()
+
 /** Applies (or removes) Orca's daemon override so it tracks the home's current path. */
 export function applyCodexDaemonSocketGuard(
   config: string,
@@ -59,10 +62,29 @@ export function applyCodexDaemonSocketGuard(
     return stripCodexDaemonOverride(config)
   }
   // Why: upsert rewrites an existing daemon_auto_start line in place, so re-applying is a no-op.
-  return upsertTableSettingsInContent(
+  const guarded = upsertTableSettingsInContent(
     config,
     'features',
     new Map([['daemon_auto_start', DAEMON_OVERRIDE_RAW]])
+  )
+  if (
+    !guarded.includes(CODEX_DAEMON_OVERRIDE_MARKER) &&
+    !/\bdaemon_auto_start\s*=\s*false\b/.test(guarded) &&
+    !unguardableHomesWarned.has(homePath)
+  ) {
+    // Why: an inline `features = {...}` or `[[features]]` blocks the upsert; say so once instead of failing silently.
+    unguardableHomesWarned.add(homePath)
+    console.warn(
+      `[codex-config] Could not turn off Codex daemon auto-start in ${homePath}: its config defines features in a form Orca cannot extend. Codex may fail with "path must be shorter than SUN_LEN"; add daemon_auto_start = false to features in ~/.codex/config.toml.`
+    )
+  }
+  return guarded
+}
+
+/** True when a config holds nothing but Orca's daemon override, i.e. no user settings. */
+export function isOnlyCodexDaemonOverride(config: string): boolean {
+  return (
+    config.includes(CODEX_DAEMON_OVERRIDE_MARKER) && stripCodexDaemonOverride(config).trim() === ''
   )
 }
 

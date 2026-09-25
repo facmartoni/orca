@@ -125,26 +125,30 @@ export function syncSystemConfigIntoLegacySharedCodexHome(
   }
   const rawSystemConfig =
     systemConfigObservation.kind === 'present' ? systemConfigObservation.value : ''
-  // Why: a missing cloud-synced source is not proof the user cleared config.
-  if (rawSystemConfig.trim() === '') {
-    return
-  }
-
-  const sourceConfigDir = resolveCodexConfigMirrorSourceDirectory(homes.systemHomePath)
   const runtimeConfigObservation = observeAgentStateFile(runtimeConfigPath)
   if (runtimeConfigObservation.kind === 'indeterminate') {
     throw runtimeConfigObservation.error
   }
   const runtimeConfigBeforeMirror =
     runtimeConfigObservation.kind === 'present' ? runtimeConfigObservation.value : null
-  const nextRuntimeConfig =
-    runtimeConfigBeforeMirror !== null
-      ? mergeSystemCodexConfigIntoRuntime(
-          runtimeConfigBeforeMirror,
-          prepareSystemConfigForRuntimeMirror(rawSystemConfig, sourceConfigDir)
-        )
-      : prepareSystemConfigForFreshRuntimeMirror(rawSystemConfig, sourceConfigDir)
-  if (runtimeConfigBeforeMirror === nextRuntimeConfig) {
+  // Why: a missing cloud-synced source is not proof the user cleared config.
+  let mirroredRuntimeConfig = runtimeConfigBeforeMirror ?? ''
+  if (rawSystemConfig.trim() !== '') {
+    const sourceConfigDir = resolveCodexConfigMirrorSourceDirectory(homes.systemHomePath)
+    mirroredRuntimeConfig =
+      runtimeConfigBeforeMirror !== null
+        ? mergeSystemCodexConfigIntoRuntime(
+            runtimeConfigBeforeMirror,
+            prepareSystemConfigForRuntimeMirror(rawSystemConfig, sourceConfigDir)
+          )
+        : prepareSystemConfigForFreshRuntimeMirror(rawSystemConfig, sourceConfigDir)
+  }
+  // Why: retained pre-rollout panes still use this home, so a refresh must keep the daemon guard.
+  const nextRuntimeConfig = applyCodexDaemonSocketGuard(
+    mirroredRuntimeConfig,
+    homes.runtimeHomePath
+  )
+  if ((runtimeConfigBeforeMirror ?? '') === nextRuntimeConfig) {
     return
   }
   // Why: stage first, then compare immediately before replace so a retained
