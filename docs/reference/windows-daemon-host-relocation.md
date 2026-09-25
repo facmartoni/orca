@@ -99,10 +99,16 @@ stop being scored.
   `orca-terminal-daemon.exe` name stays in the macro to reap hosts left by older builds.
 - `LOCAL_HOST_ROOT_NAME` in `daemon-host-relocation.ts` and the path in the uninstall macro are the
   same directory. Change both together.
+- Every native module the daemon bundle `require()`s must be in the copy plan
+  (`daemon-host-manifest.ts`). A missing one does not fail the fork: bare `require` walks up from the
+  relocated bundle, finds nothing, and the caller's fallback runs forever. That is how
+  `@vscode/windows-process-tree` went missing and every process-table read became a
+  `powershell.exe` CIM scan (#16905). A host missing the addon's runtime files counts as
+  unmaterialized, so hosts built before it was copied get rebuilt.
 
 ## Verifying a change
 
-Unit coverage lives in `src/main/daemon/daemon-host-relocation.test.ts` (copy plan, verbatim
+Unit coverage lives in `src/main/daemon/daemon-host-relocation.test.ts` (copy plan, native-addon mirror, verbatim
 naming, marker/atomic publish, fail-open, prune veto). Nothing in unit tests can prove survival, so
 any change to this file or to the NSIS macro needs the packaged harnesses:
 
