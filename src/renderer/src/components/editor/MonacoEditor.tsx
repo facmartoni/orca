@@ -6,7 +6,7 @@ import type { MarkdownDocument } from '../../../../shared/filesystem-entry-types
 import { useAppStore } from '@/store'
 import '@/lib/monaco-setup'
 import { computeEditorFontSize, resolveEditorFontFamily } from '@/lib/editor-font-zoom'
-import { resolveEditorTheme } from '@/lib/monaco-themes'
+import { useEditorTheme } from './use-editor-theme'
 
 import { useContextualCopySetup } from './useContextualCopySetup'
 import { MonacoGutterContextMenu } from './MonacoGutterContextMenu'
@@ -88,6 +88,7 @@ export default function MonacoEditor({
   contentSyncModeRef.current = readOnly && liveTail ? 'read-only-live-tail' : 'undoable'
 
   const settings = useAppStore((s) => s.settings)
+  const editorTheme = useEditorTheme()
   const editorFontZoomLevel = useAppStore((s) => s.editorFontZoomLevel)
   const setPendingEditorReveal = useAppStore((s) => s.setPendingEditorReveal)
   const setEditorCursorLine = useAppStore((s) => s.setEditorCursorLine)
@@ -235,7 +236,7 @@ export default function MonacoEditor({
         language={language}
         // Why: defaultValue, not controlled value — Orca owns post-mount content sync; a controlled path would double setValue.
         defaultValue={content}
-        theme={resolveEditorTheme(settings)}
+        theme={editorTheme}
         onChange={contentSync.handleChange}
         onMount={handleMount}
         options={{

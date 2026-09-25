@@ -92,5 +92,13 @@ describe('monaco-themes', () => {
         () => ({ matches: false })
       )
     ).toBe('one-light')
+
+    // Explicit isDark boolean parameter
+    expect(
+      resolveEditorTheme({ editorThemeDark: 'dracula', editorThemeLight: 'one-light' }, true)
+    ).toBe('dracula')
+    expect(
+      resolveEditorTheme({ editorThemeDark: 'dracula', editorThemeLight: 'one-light' }, false)
+    ).toBe('one-light')
   })
 })

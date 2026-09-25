@@ -16,6 +16,9 @@ type EditorThemeSettingProps = {
   updateSettings: (updates: Partial<GlobalSettings>) => void
 }
 
+/**
+ * Settings row controls for configuring Monaco editor themes in dark and light modes.
+ */
 export function EditorThemeSetting({
   settings,
   updateSettings

@@ -371,7 +371,7 @@ export function DiffSectionItem({
           isBranchMode={isBranchMode}
           sideBySide={sideBySide}
           isDark={isDark}
-          theme={resolveEditorTheme(settings)}
+          theme={resolveEditorTheme(settings, isDark)}
           language={language}
           modelPathBase={modelPathBase}
           isEditable={isEditable}

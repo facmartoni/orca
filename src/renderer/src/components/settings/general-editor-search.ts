@@ -2,6 +2,7 @@ import { translate } from '@/i18n/i18n'
 import { translateSearchKeyword } from './settings-search-keywords'
 import { createLocalizedCatalog } from '@/i18n/localized-catalog'
 
+/** Localized search entries for general editor settings. */
 export const getGeneralEditorSearchEntries = createLocalizedCatalog(() => [
   {
     title: translate('auto.components.settings.general.search.ae21e806ce', 'Auto Save Files'),

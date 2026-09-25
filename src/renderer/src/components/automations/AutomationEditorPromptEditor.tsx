@@ -5,7 +5,7 @@ import { installMonacoEditorFindShortcut } from '@/components/editor/editor-shor
 import { syncContentOnMount, syncContentUpdate } from '@/components/editor/monaco-content-sync'
 import { isMonacoFindWidgetOpen } from '@/components/editor/monaco-find-widget'
 import { computeEditorFontSize, resolveEditorFontFamily } from '@/lib/editor-font-zoom'
-import { resolveEditorTheme } from '@/lib/monaco-themes'
+import { useEditorTheme } from '@/components/editor/use-editor-theme'
 import '@/lib/monaco-setup'
 import { useAppStore } from '@/store'
 import { cn } from '@/lib/utils'
@@ -74,7 +74,7 @@ export function AutomationEditorPromptEditor({
 
   const fontSize = computeEditorFontSize(settings?.terminalFontSize ?? 13, editorFontZoomLevel)
   const fontFamily = resolveEditorFontFamily(settings)
-  const editorTheme = resolveEditorTheme(settings)
+  const editorTheme = useEditorTheme()
   const options = useMemo(
     () =>
       buildAutomationPromptEditorOptions({

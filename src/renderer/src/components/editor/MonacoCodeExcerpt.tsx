@@ -3,7 +3,7 @@ import { monaco } from '@/lib/monaco-setup'
 import { computeEditorFontSize, resolveEditorFontFamily } from '@/lib/editor-font-zoom'
 import { useAppStore } from '@/store'
 import { cn } from '@/lib/utils'
-import { resolveEditorTheme } from '@/lib/monaco-themes'
+import { useEditorTheme } from './use-editor-theme'
 
 let pythonLanguageRegistrationPromise: Promise<void> | null = null
 
@@ -32,8 +32,7 @@ async function ensureColorizationLanguage(language: string): Promise<void> {
 
 /** Monaco token HTML per line; loads lazy tokenizers (e.g. Python) before colorizing. */
 export function useMonacoColorizedLines(lines: string[], language: string): string[] {
-  const settings = useAppStore((s) => s.settings)
-  const editorTheme = resolveEditorTheme(settings)
+  const editorTheme = useEditorTheme()
   const code = useMemo(() => lines.join('\n'), [lines])
   const [htmlLines, setHtmlLines] = useState<string[]>(() => lines.map(() => ''))
 
