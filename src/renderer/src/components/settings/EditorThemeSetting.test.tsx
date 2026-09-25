@@ -13,7 +13,9 @@ vi.mock('../../store', () => ({
 
 vi.mock('../ui/select', async () => {
   const ReactModule = await import('react')
+  const { ALL_EDITOR_THEMES } = await import('@/lib/monaco-themes')
   const SelectContext = ReactModule.createContext<{
+    value?: string
     onValueChange?: (value: string) => void
   }>({})
 
@@ -27,7 +29,10 @@ vi.mock('../ui/select', async () => {
       onValueChange: (value: string) => void
       children: React.ReactNode
     }) => {
-      const contextValue = ReactModule.useMemo(() => ({ onValueChange }), [onValueChange])
+      const contextValue = ReactModule.useMemo(
+        () => ({ value, onValueChange }),
+        [value, onValueChange]
+      )
       return (
         <SelectContext.Provider value={contextValue}>
           <div data-slot="select" data-value={value}>
@@ -41,7 +46,11 @@ vi.mock('../ui/select', async () => {
         {children}
       </button>
     ),
-    SelectValue: () => null,
+    SelectValue: () => {
+      const { value } = ReactModule.useContext(SelectContext)
+      const label = ALL_EDITOR_THEMES.find((theme) => theme.id === value)?.name ?? value
+      return <span data-slot="select-value">{label}</span>
+    },
     SelectContent: ({ children }: { children: React.ReactNode }) => (
       <div data-slot="select-content">{children}</div>
     ),
@@ -107,7 +116,7 @@ describe('EditorThemeSetting', () => {
     expect(triggers[1]?.getAttribute('aria-label')).toBe('Editor Theme (Light Mode)')
   })
 
-  it('displays configured dark and light theme values', () => {
+  it('displays configured dark and light theme values and visible labels', () => {
     const { container } = renderSetting({
       editorThemeDark: 'dracula',
       editorThemeLight: 'one-light'
@@ -115,6 +124,10 @@ describe('EditorThemeSetting', () => {
     const selects = container.querySelectorAll('[data-slot="select"]')
     expect(selects[0]?.getAttribute('data-value')).toBe('dracula')
     expect(selects[1]?.getAttribute('data-value')).toBe('one-light')
+
+    const triggers = container.querySelectorAll('[role="combobox"]')
+    expect(triggers[0]?.textContent).toContain('Dracula')
+    expect(triggers[1]?.textContent).toContain('One Light')
   })
 
   it('updates dark editor theme when a dark theme is selected', () => {
