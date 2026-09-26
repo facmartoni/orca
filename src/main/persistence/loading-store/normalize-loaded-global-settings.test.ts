@@ -78,7 +78,7 @@ describe('machine name setting', () => {
 })
 
 describe('prepareLoadedProfileSettings agent defaults persistence', () => {
-  it('triggers markNeedsSave when agentDefaultArgs or agentDefaultEnv are modified', () => {
+  it('triggers markNeedsSave when only agentDefaultArgs is modified', () => {
     const defaults = getDefaultPersistedState(homedir())
     let saved = false
     const markNeedsSave = (): void => {
@@ -90,11 +90,51 @@ describe('prepareLoadedProfileSettings agent defaults persistence', () => {
         ...defaults.settings,
         agentYoloDefaultsMigrated: true,
         agentDefaultArgs: { claude: '--dangerously-skip-permissions' },
+        agentDefaultEnv: { ...defaults.settings.agentDefaultEnv }
+      }
+    }
+
+    prepareLoadedProfileSettings(parsed, defaults, markNeedsSave)
+    expect(saved).toBe(true)
+  })
+
+  it('triggers markNeedsSave when only agentDefaultEnv is modified', () => {
+    const defaults = getDefaultPersistedState(homedir())
+    let saved = false
+    const markNeedsSave = (): void => {
+      saved = true
+    }
+    const parsed: PersistedState = {
+      ...defaults,
+      settings: {
+        ...defaults.settings,
+        agentYoloDefaultsMigrated: true,
+        agentDefaultArgs: { ...defaults.settings.agentDefaultArgs },
         agentDefaultEnv: {}
       }
     }
 
     prepareLoadedProfileSettings(parsed, defaults, markNeedsSave)
     expect(saved).toBe(true)
+  })
+
+  it('does not trigger markNeedsSave when agent defaults are already in sync', () => {
+    const defaults = getDefaultPersistedState(homedir())
+    let saved = false
+    const markNeedsSave = (): void => {
+      saved = true
+    }
+    const parsed: PersistedState = {
+      ...defaults,
+      settings: {
+        ...defaults.settings,
+        agentYoloDefaultsMigrated: true,
+        agentDefaultArgs: { ...defaults.settings.agentDefaultArgs },
+        agentDefaultEnv: { ...defaults.settings.agentDefaultEnv }
+      }
+    }
+
+    prepareLoadedProfileSettings(parsed, defaults, markNeedsSave)
+    expect(saved).toBe(false)
   })
 })
