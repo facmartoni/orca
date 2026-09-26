@@ -137,4 +137,23 @@ describe('migrateAgentYoloDefaults', () => {
     expect(migrated.agentDefaultEnv?.goose).toEqual({})
     expect(migrated.agentYoloDefaultsBackfillRepaired).toBe(true)
   })
+
+  it('preserves command override ownership for missing agents in already-migrated yolo profiles', () => {
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: This test only supplies the settings fields consumed by this migration.
+    const migrated = migrateAgentYoloDefaults({
+      agentYoloDefaultsMigrated: true,
+      agentDefaultArgs: {
+        claude: '--dangerously-skip-permissions'
+      },
+      agentDefaultEnv: {},
+      agentCmdOverrides: {
+        muse: '/custom/bin/muse',
+        goose: '/custom/bin/goose'
+      }
+    } as never)
+
+    expect(migrated.agentDefaultArgs?.muse).toBe('')
+    expect(migrated.agentDefaultEnv?.goose).toEqual({})
+    expect(migrated.agentDefaultArgs?.droid).toBe('--auto high')
+  })
 })

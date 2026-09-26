@@ -194,16 +194,17 @@ export function migrateAgentYoloDefaults(
           agentDefaultEnv: existingEnv
         })
 
+    const commandOverrides = settings?.agentCmdOverrides ?? {}
     for (const [agent, args] of Object.entries(DEFAULT_TUI_AGENT_ARGS)) {
       if (!(agent in existingArgs)) {
         existingArgs[agent as keyof typeof DEFAULT_TUI_AGENT_ARGS] =
-          permissionMode === 'yolo' ? args : ''
+          agent in commandOverrides ? '' : permissionMode === 'yolo' ? args : ''
       }
     }
     for (const [agent, env] of Object.entries(DEFAULT_TUI_AGENT_ENV)) {
       if (!(agent in existingEnv)) {
         existingEnv[agent as keyof typeof DEFAULT_TUI_AGENT_ENV] =
-          permissionMode === 'yolo' ? { ...env } : {}
+          agent in commandOverrides ? {} : permissionMode === 'yolo' ? { ...env } : {}
       }
     }
     return {
