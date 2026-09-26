@@ -10,6 +10,7 @@ import {
   normalizeTuiAgentArgsRecord,
   normalizeTuiAgentEnvRecord
 } from '../../../shared/tui-agent-launch-defaults'
+import { resolveConfiguredAgentPermissionModeSummary } from '../../../shared/tui-agent-permissions'
 
 export function buildWorkspaceDirHistoryForUpdate(
   current: GlobalSettings,
@@ -130,16 +131,36 @@ export function migrateAgentYoloDefaults(
     existingArgs.devin = DEFAULT_TUI_AGENT_ARGS.devin
   }
   if (settings?.agentYoloDefaultsMigrated === true) {
-    // Keep newly added agents manual for profiles migrated by an older build.
-    // Missing keys otherwise fall through to the current (possibly yolo) defaults.
-    for (const agent of Object.keys(DEFAULT_TUI_AGENT_ARGS)) {
+    // Inherit the profile's active permission mode for newly added agents instead of forcing manual.
+    // Also repair muse if the rest of the profile is in yolo mode (recovering from PR #17515 backfill).
+    const isOtherwiseYolo =
+      resolveConfiguredAgentPermissionModeSummary({
+        agentDefaultArgs: existingArgs,
+        agentDefaultEnv: existingEnv,
+        excludeAgents: existingArgs.muse === '' ? ['muse'] : []
+      }) === 'yolo'
+
+    if (isOtherwiseYolo && existingArgs.muse === '') {
+      existingArgs.muse = DEFAULT_TUI_AGENT_ARGS.muse
+    }
+
+    const permissionMode = isOtherwiseYolo
+      ? 'yolo'
+      : resolveConfiguredAgentPermissionModeSummary({
+          agentDefaultArgs: existingArgs,
+          agentDefaultEnv: existingEnv
+        })
+
+    for (const [agent, args] of Object.entries(DEFAULT_TUI_AGENT_ARGS)) {
       if (!(agent in existingArgs)) {
-        existingArgs[agent as keyof typeof DEFAULT_TUI_AGENT_ARGS] = ''
+        existingArgs[agent as keyof typeof DEFAULT_TUI_AGENT_ARGS] =
+          permissionMode === 'yolo' ? args : ''
       }
     }
-    for (const agent of Object.keys(DEFAULT_TUI_AGENT_ENV)) {
+    for (const [agent, env] of Object.entries(DEFAULT_TUI_AGENT_ENV)) {
       if (!(agent in existingEnv)) {
-        existingEnv[agent as keyof typeof DEFAULT_TUI_AGENT_ENV] = {}
+        existingEnv[agent as keyof typeof DEFAULT_TUI_AGENT_ENV] =
+          permissionMode === 'yolo' ? { ...env } : {}
       }
     }
     return {

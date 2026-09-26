@@ -137,6 +137,45 @@ export function resolveAgentPermissionModeSummary(args: {
   return combinePermissionModes(modes)
 }
 
+export function resolveConfiguredAgentPermissionModeSummary(args: {
+  agentDefaultArgs?: Partial<Record<TuiAgent, string>> | null
+  agentDefaultEnv?: Partial<Record<TuiAgent, Record<string, string>>> | null
+  excludeAgents?: readonly TuiAgent[]
+}): AgentPermissionMode {
+  const modes: AgentPermissionMode[] = []
+  const excluded = new Set(args.excludeAgents ?? [])
+
+  for (const agent of PERMISSION_AGENT_IDS) {
+    if (excluded.has(agent)) {
+      continue
+    }
+    const hasArgs =
+      args.agentDefaultArgs &&
+      Object.hasOwn(args.agentDefaultArgs, agent) &&
+      typeof args.agentDefaultArgs[agent] === 'string'
+    const hasEnv =
+      args.agentDefaultEnv &&
+      Object.hasOwn(args.agentDefaultEnv, agent) &&
+      typeof args.agentDefaultEnv[agent] === 'object' &&
+      args.agentDefaultEnv[agent] !== null
+    if (!hasArgs && !hasEnv) {
+      continue
+    }
+    modes.push(
+      resolveTuiAgentPermissionMode({
+        agent,
+        agentArgs: args.agentDefaultArgs?.[agent],
+        agentEnv: args.agentDefaultEnv?.[agent]
+      })
+    )
+  }
+
+  if (modes.length === 0) {
+    return 'manual'
+  }
+  return combinePermissionModes(modes)
+}
+
 export function applyAgentPermissionMode(args: {
   mode: Exclude<AgentPermissionMode, 'mixed'>
   agentDefaultArgs?: Partial<Record<TuiAgent, string>> | null
