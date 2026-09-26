@@ -48,16 +48,26 @@ describe('migrateAgentYoloDefaults', () => {
       agentDefaultArgs: {
         claude: '--dangerously-skip-permissions',
         codex: '--dangerously-bypass-approvals-and-sandbox',
+        ante: '',
+        devin: '',
+        trae: '',
         droid: '',
-        muse: ''
+        muse: '',
+        zcode: ''
       },
       agentDefaultEnv: {
         goose: {}
       }
     } as never)
 
+    expect(migrated.agentDefaultArgs?.ante).toBe('--yolo')
+    expect(migrated.agentDefaultArgs?.devin).toBe(
+      '--permission-mode bypass --respect-workspace-trust false'
+    )
+    expect(migrated.agentDefaultArgs?.trae).toBe('--yolo')
     expect(migrated.agentDefaultArgs?.droid).toBe('--auto high')
     expect(migrated.agentDefaultArgs?.muse).toBe('--yolo')
+    expect(migrated.agentDefaultArgs?.zcode).toBe('--mode yolo')
     expect(migrated.agentDefaultEnv?.goose).toEqual({ GOOSE_MODE: 'auto' })
   })
 

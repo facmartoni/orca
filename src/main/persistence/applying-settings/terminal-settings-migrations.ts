@@ -123,6 +123,9 @@ export function getWorkspaceLayoutHistoryKey(layout: OrcaWorkspaceLayout): strin
 }
 
 const REGRESSION_BACKFILLED_AGENTS: readonly (keyof typeof DEFAULT_TUI_AGENT_ARGS)[] = [
+  'ante',
+  'devin',
+  'trae',
   'droid',
   'muse',
   'zcode'
@@ -157,9 +160,7 @@ export function migrateAgentYoloDefaults(
 
     if (isOtherwiseYolo) {
       for (const agent of backfilledArgsAgents) {
-        if (agent in DEFAULT_TUI_AGENT_ARGS) {
-          existingArgs[agent] = DEFAULT_TUI_AGENT_ARGS[agent]
-        }
+        existingArgs[agent] = DEFAULT_TUI_AGENT_ARGS[agent]
       }
       if (backfilledEnvGoose) {
         existingEnv.goose = { ...DEFAULT_TUI_AGENT_ENV.goose }
