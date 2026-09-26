@@ -1,7 +1,6 @@
 import type { GlobalSettings } from '../../../shared/global-settings-types'
 import type { PersistedState } from '../../../shared/persisted-state-types'
 import type { ProjectGroup } from '../../../shared/project-group-types'
-import type { TuiAgent } from '../../../shared/tui-agent'
 import { deriveGlobalWindowsRuntimeDefaultFromLegacySettings } from '../../../shared/project-execution-runtime'
 import { normalizeTaskProviderSettings } from '../../../shared/task-providers'
 import { normalizeAutoRenameBranchFromWorkDefaultOn } from '../../../shared/auto-rename-branch-from-work-settings'
@@ -17,6 +16,7 @@ import { hasUnsupportedTuiAgentArgs } from '../../../shared/tui-agent-launch-def
 import { normalizeTerminalCursorStyleDefault } from '../../../shared/terminal-cursor-style-settings'
 import { normalizeTerminalLineHeight } from '../../../shared/terminal-line-height-settings'
 import { migrateAgentYoloDefaults } from '../applying-settings/terminal-settings-migrations'
+import { persistedUIValuesEqual } from '../../../shared/persisted-ui-equality'
 import {
   normalizeLoadedOnboardingState,
   normalizeNotificationSettings,
@@ -54,29 +54,6 @@ export type PreparedLoadedProfileSettings = {
   normalizedSourceControlGroupOrder: GlobalSettings['sourceControlGroupOrder']
   normalizedOnboarding: PersistedState['onboarding']
   normalizedProjectGroups: ProjectGroup[]
-}
-
-function agentDefaultArgsRecordEqual(
-  left: Partial<Record<TuiAgent, string>> | undefined,
-  right: Partial<Record<TuiAgent, string>> | undefined
-): boolean {
-  if (left === right) {
-    return true
-  }
-  if (!left || !right) {
-    return false
-  }
-  const leftKeys = Object.keys(left)
-  const rightKeys = Object.keys(right)
-  if (leftKeys.length !== rightKeys.length) {
-    return false
-  }
-  for (const key of leftKeys) {
-    if (left[key as TuiAgent] !== right[key as TuiAgent]) {
-      return false
-    }
-  }
-  return true
 }
 
 export function prepareLoadedProfileSettings(
@@ -162,10 +139,13 @@ export function prepareLoadedProfileSettings(
     parsed.settings?.agentYoloDefaultsMigrated !== true ||
     parsed.settings?.agentDefaultArgs?.devin !==
       migratedAgentYoloDefaults.agentDefaultArgs?.devin ||
-    parsed.settings?.agentDefaultArgs?.muse !== migratedAgentYoloDefaults.agentDefaultArgs?.muse ||
-    !agentDefaultArgsRecordEqual(
+    !persistedUIValuesEqual(
       parsed.settings?.agentDefaultArgs,
       migratedAgentYoloDefaults.agentDefaultArgs
+    ) ||
+    !persistedUIValuesEqual(
+      parsed.settings?.agentDefaultEnv,
+      migratedAgentYoloDefaults.agentDefaultEnv
     ) ||
     hasUnsupportedTuiAgentArgs('opencode', parsed.settings?.agentDefaultArgs?.opencode) ||
     hasUnsupportedTuiAgentArgs('kilo', parsed.settings?.agentDefaultArgs?.kilo)

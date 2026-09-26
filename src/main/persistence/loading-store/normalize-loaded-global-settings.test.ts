@@ -76,3 +76,25 @@ describe('machine name setting', () => {
     expect(normalizeLegacyProfile({ machineName: 'x'.repeat(300) }).machineName).toHaveLength(255)
   })
 })
+
+describe('prepareLoadedProfileSettings agent defaults persistence', () => {
+  it('triggers markNeedsSave when agentDefaultArgs or agentDefaultEnv are modified', () => {
+    const defaults = getDefaultPersistedState(homedir())
+    let saved = false
+    const markNeedsSave = (): void => {
+      saved = true
+    }
+    const parsed: PersistedState = {
+      ...defaults,
+      settings: {
+        ...defaults.settings,
+        agentYoloDefaultsMigrated: true,
+        agentDefaultArgs: { claude: '--dangerously-skip-permissions' },
+        agentDefaultEnv: {}
+      }
+    }
+
+    prepareLoadedProfileSettings(parsed, defaults, markNeedsSave)
+    expect(saved).toBe(true)
+  })
+})

@@ -122,6 +122,12 @@ export function getWorkspaceLayoutHistoryKey(layout: OrcaWorkspaceLayout): strin
   return `${normalizeRuntimePathForComparison(layout.path)}:${layout.nestWorkspaces}`
 }
 
+const REGRESSION_BACKFILLED_AGENTS: readonly (keyof typeof DEFAULT_TUI_AGENT_ARGS)[] = [
+  'droid',
+  'muse',
+  'zcode'
+]
+
 export function migrateAgentYoloDefaults(
   settings: GlobalSettings | undefined
 ): Pick<GlobalSettings, 'agentDefaultArgs' | 'agentDefaultEnv' | 'agentYoloDefaultsMigrated'> {
@@ -132,16 +138,32 @@ export function migrateAgentYoloDefaults(
   }
   if (settings?.agentYoloDefaultsMigrated === true) {
     // Inherit the profile's active permission mode for newly added agents instead of forcing manual.
-    // Also repair muse if the rest of the profile is in yolo mode (recovering from PR #17515 backfill).
+    // Also repair agents that were backfilled to manual by PR #17515 if the profile's active posture is yolo.
+    const backfilledArgsAgents = REGRESSION_BACKFILLED_AGENTS.filter(
+      (agent) => existingArgs[agent] === ''
+    )
+    const backfilledEnvGoose =
+      existingEnv.goose !== undefined && Object.keys(existingEnv.goose).length === 0
+
     const isOtherwiseYolo =
       resolveConfiguredAgentPermissionModeSummary({
         agentDefaultArgs: existingArgs,
         agentDefaultEnv: existingEnv,
-        excludeAgents: existingArgs.muse === '' ? ['muse'] : []
+        excludeAgents: [
+          ...backfilledArgsAgents,
+          ...(backfilledEnvGoose ? (['goose'] as const) : [])
+        ]
       }) === 'yolo'
 
-    if (isOtherwiseYolo && existingArgs.muse === '') {
-      existingArgs.muse = DEFAULT_TUI_AGENT_ARGS.muse
+    if (isOtherwiseYolo) {
+      for (const agent of backfilledArgsAgents) {
+        if (agent in DEFAULT_TUI_AGENT_ARGS) {
+          existingArgs[agent] = DEFAULT_TUI_AGENT_ARGS[agent]
+        }
+      }
+      if (backfilledEnvGoose) {
+        existingEnv.goose = { ...DEFAULT_TUI_AGENT_ENV.goose }
+      }
     }
 
     const permissionMode = isOtherwiseYolo

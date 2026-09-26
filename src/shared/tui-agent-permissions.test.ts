@@ -133,8 +133,15 @@ describe('tui agent permissions', () => {
   it('honors excluded agents in configured permission mode summary', () => {
     expect(
       resolveConfiguredAgentPermissionModeSummary({
-        agentDefaultArgs: { claude: '--dangerously-skip-permissions', muse: '' },
-        excludeAgents: ['muse']
+        agentDefaultArgs: {
+          claude: '--dangerously-skip-permissions',
+          droid: '',
+          muse: ''
+        },
+        agentDefaultEnv: {
+          goose: {}
+        },
+        excludeAgents: ['droid', 'muse', 'goose']
       })
     ).toBe('yolo')
   })

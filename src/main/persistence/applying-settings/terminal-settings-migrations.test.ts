@@ -41,18 +41,42 @@ describe('migrateAgentYoloDefaults', () => {
     expect(migrated.agentDefaultEnv?.goose).toEqual({})
   })
 
-  it('repairs muse default to yolo when existing profile is otherwise in yolo mode', () => {
+  it('repairs muse and other backfilled defaults to yolo when existing profile is otherwise in yolo mode', () => {
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: This test only supplies the settings fields consumed by this migration.
     const migrated = migrateAgentYoloDefaults({
       agentYoloDefaultsMigrated: true,
       agentDefaultArgs: {
         claude: '--dangerously-skip-permissions',
         codex: '--dangerously-bypass-approvals-and-sandbox',
+        droid: '',
         muse: ''
       },
-      agentDefaultEnv: {}
+      agentDefaultEnv: {
+        goose: {}
+      }
     } as never)
 
+    expect(migrated.agentDefaultArgs?.droid).toBe('--auto high')
+    expect(migrated.agentDefaultArgs?.muse).toBe('--yolo')
+    expect(migrated.agentDefaultEnv?.goose).toEqual({ GOOSE_MODE: 'auto' })
+  })
+
+  it('repairs backfilled defaults when env was already yolo', () => {
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: This test only supplies the settings fields consumed by this migration.
+    const migrated = migrateAgentYoloDefaults({
+      agentYoloDefaultsMigrated: true,
+      agentDefaultArgs: {
+        claude: '--dangerously-skip-permissions',
+        codex: '--dangerously-bypass-approvals-and-sandbox',
+        droid: '',
+        muse: ''
+      },
+      agentDefaultEnv: {
+        goose: { GOOSE_MODE: 'auto' }
+      }
+    } as never)
+
+    expect(migrated.agentDefaultArgs?.droid).toBe('--auto high')
     expect(migrated.agentDefaultArgs?.muse).toBe('--yolo')
   })
 
