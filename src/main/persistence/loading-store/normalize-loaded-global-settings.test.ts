@@ -137,4 +137,25 @@ describe('prepareLoadedProfileSettings agent defaults persistence', () => {
     prepareLoadedProfileSettings(parsed, defaults, markNeedsSave)
     expect(saved).toBe(false)
   })
+
+  it('triggers markNeedsSave when agentYoloDefaultsBackfillRepaired is missing on an already-migrated profile', () => {
+    const defaults = getDefaultPersistedState(homedir())
+    let saved = false
+    const markNeedsSave = (): void => {
+      saved = true
+    }
+    const parsed: PersistedState = {
+      ...defaults,
+      settings: {
+        ...defaults.settings,
+        agentYoloDefaultsMigrated: true,
+        agentYoloDefaultsBackfillRepaired: undefined,
+        agentDefaultArgs: { ...defaults.settings.agentDefaultArgs },
+        agentDefaultEnv: { ...defaults.settings.agentDefaultEnv }
+      }
+    }
+
+    prepareLoadedProfileSettings(parsed, defaults, markNeedsSave)
+    expect(saved).toBe(true)
+  })
 })

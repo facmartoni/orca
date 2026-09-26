@@ -219,6 +219,7 @@ export function buildDefaultSettings(args: {
     agentDefaultArgs: { ...DEFAULT_TUI_AGENT_ARGS },
     agentDefaultEnv: { ...DEFAULT_TUI_AGENT_ENV },
     agentYoloDefaultsMigrated: true,
+    agentYoloDefaultsBackfillRepaired: true,
     agentStatusHooksEnabled: true,
     tabAutoGenerateTitle: false,
     confirmClosePinnedTab: true,

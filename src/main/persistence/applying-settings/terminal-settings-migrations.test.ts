@@ -117,4 +117,24 @@ describe('migrateAgentYoloDefaults', () => {
       '--permission-mode bypass --respect-workspace-trust false'
     )
   })
+
+  it('does not overwrite intentional manual defaults when backfill has already been repaired', () => {
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: This test only supplies the settings fields consumed by this migration.
+    const migrated = migrateAgentYoloDefaults({
+      agentYoloDefaultsMigrated: true,
+      agentYoloDefaultsBackfillRepaired: true,
+      agentDefaultArgs: {
+        claude: '--dangerously-skip-permissions',
+        codex: '--dangerously-bypass-approvals-and-sandbox',
+        muse: ''
+      },
+      agentDefaultEnv: {
+        goose: {}
+      }
+    } as never)
+
+    expect(migrated.agentDefaultArgs?.muse).toBe('')
+    expect(migrated.agentDefaultEnv?.goose).toEqual({})
+    expect(migrated.agentYoloDefaultsBackfillRepaired).toBe(true)
+  })
 })

@@ -131,9 +131,25 @@ const REGRESSION_BACKFILLED_AGENTS: readonly (keyof typeof DEFAULT_TUI_AGENT_ARG
   'zcode'
 ]
 
+/**
+ * Migrates agent default launch arguments and environment variables to match the active permission posture.
+ *
+ * For profiles migrated prior to agent additions, inherits the profile's active permission mode
+ * ('yolo', 'manual', or 'mixed') for newly added agents. Also executes a one-time repair for agents
+ * backfilled to manual by PR #17515 on profiles that were actively configured in YOLO mode.
+ *
+ * @param settings - The global settings object being loaded or updated.
+ * @returns The migrated agent default arguments, environment variables, and migration guard flags.
+ */
 export function migrateAgentYoloDefaults(
   settings: GlobalSettings | undefined
-): Pick<GlobalSettings, 'agentDefaultArgs' | 'agentDefaultEnv' | 'agentYoloDefaultsMigrated'> {
+): Pick<
+  GlobalSettings,
+  | 'agentDefaultArgs'
+  | 'agentDefaultEnv'
+  | 'agentYoloDefaultsMigrated'
+  | 'agentYoloDefaultsBackfillRepaired'
+> {
   const existingArgs = normalizeTuiAgentArgsRecord(settings?.agentDefaultArgs)
   const existingEnv = normalizeTuiAgentEnvRecord(settings?.agentDefaultEnv)
   if (existingArgs.devin === '--permission-mode bypass') {
@@ -142,13 +158,17 @@ export function migrateAgentYoloDefaults(
   if (settings?.agentYoloDefaultsMigrated === true) {
     // Inherit the profile's active permission mode for newly added agents instead of forcing manual.
     // Also repair agents that were backfilled to manual by PR #17515 if the profile's active posture is yolo.
-    const backfilledArgsAgents = REGRESSION_BACKFILLED_AGENTS.filter(
-      (agent) => existingArgs[agent] === ''
-    )
+    const alreadyRepaired = settings?.agentYoloDefaultsBackfillRepaired === true
+    const backfilledArgsAgents = alreadyRepaired
+      ? []
+      : REGRESSION_BACKFILLED_AGENTS.filter((agent) => existingArgs[agent] === '')
     const backfilledEnvGoose =
-      existingEnv.goose !== undefined && Object.keys(existingEnv.goose).length === 0
+      !alreadyRepaired &&
+      existingEnv.goose !== undefined &&
+      Object.keys(existingEnv.goose).length === 0
 
     const isOtherwiseYolo =
+      !alreadyRepaired &&
       resolveConfiguredAgentPermissionModeSummary({
         agentDefaultArgs: existingArgs,
         agentDefaultEnv: existingEnv,
@@ -189,7 +209,8 @@ export function migrateAgentYoloDefaults(
     return {
       agentDefaultArgs: existingArgs,
       agentDefaultEnv: existingEnv,
-      agentYoloDefaultsMigrated: true
+      agentYoloDefaultsMigrated: true,
+      agentYoloDefaultsBackfillRepaired: true
     }
   }
 
@@ -222,6 +243,7 @@ export function migrateAgentYoloDefaults(
     // Why: legacy users could only customize launch defaults via command overrides, so those agents count as already user-owned.
     agentDefaultArgs: migratedArgs,
     agentDefaultEnv: migratedEnv,
-    agentYoloDefaultsMigrated: true
+    agentYoloDefaultsMigrated: true,
+    agentYoloDefaultsBackfillRepaired: true
   }
 }

@@ -137,6 +137,16 @@ export function resolveAgentPermissionModeSummary(args: {
   return combinePermissionModes(modes)
 }
 
+/**
+ * Resolves the overall agent permission mode summary considering only configured agents.
+ *
+ * Unlike {@link resolveAgentPermissionModeSummary}, this function ignores agents that are not
+ * physically present in either `agentDefaultArgs` or `agentDefaultEnv`. It also allows excluding
+ * specific agents via `excludeAgents` to evaluate the baseline posture of a profile.
+ *
+ * @param args - The configured default arguments, environment variables, and optional excluded agents.
+ * @returns The resolved mode: `'yolo'` if all configured agents are YOLO, `'manual'` if all are manual or none configured, or `'mixed'`.
+ */
 export function resolveConfiguredAgentPermissionModeSummary(args: {
   agentDefaultArgs?: Partial<Record<TuiAgent, string>> | null
   agentDefaultEnv?: Partial<Record<TuiAgent, Record<string, string>>> | null
