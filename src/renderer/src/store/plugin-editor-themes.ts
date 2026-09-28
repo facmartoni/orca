@@ -174,7 +174,9 @@ export function ensurePluginEditorThemesLoaded(): void {
   const joinsCurrentRequest =
     latestRequestStartedAt !== null &&
     Date.now() - latestRequestStartedAt < STARTUP_REQUEST_JOIN_WINDOW_MS
-  if (state.pending.generation === 0 && !joinsCurrentRequest) {
+  const startsRequest =
+    (state.pending.generation === 0 || state.error !== null) && !joinsCurrentRequest
+  if (startsRequest) {
     void refreshPluginEditorThemes()
   }
 
@@ -187,7 +189,7 @@ export function ensurePluginEditorThemesLoaded(): void {
     })
     // Reacquisition may follow an HMR gap where plugins:changed was missed.
     // Refresh the authoritative snapshot unless a request already covers that gap.
-    if (state.pending.generation > 0 && !joinsCurrentRequest) {
+    if (state.pending.generation > 0 && !joinsCurrentRequest && !startsRequest) {
       void refreshPluginEditorThemes()
     }
   }
@@ -210,7 +212,17 @@ export function commitActivePluginEditorThemes(
 }
 
 export function usePluginEditorThemeOptions(): readonly PluginEditorThemeRegistration[] {
-  return usePluginEditorThemeStore((state) => state.active.all)
+  const registrations = usePluginEditorThemeStore((state) =>
+    state.runtimeStatus === 'failed' ||
+    (state.runtimeStatus === 'ready' &&
+      state.active.revision === state.pending.generation)
+      ? state.active.all
+      : state.pending.registrations
+  )
+  useEffect(() => {
+    ensurePluginEditorThemesLoaded()
+  }, [])
+  return registrations
 }
 
 export function usePluginEditorThemes(): PluginEditorThemeCatalog {

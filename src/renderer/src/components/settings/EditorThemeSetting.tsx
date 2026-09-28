@@ -15,7 +15,6 @@ import {
   usePluginEditorThemeOptions,
   usePluginEditorThemeStore
 } from '@/store/plugin-editor-themes'
-import { usePluginEditorThemeRuntime } from '@/hooks/usePluginEditorThemeRuntime'
 import { SearchableSetting } from './SearchableSetting'
 import { SettingsRow } from './SettingsFormControls'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -80,16 +79,13 @@ export function EditorThemeSetting({
   settings,
   updateSettings
 }: EditorThemeSettingProps): React.JSX.Element {
-  usePluginEditorThemeRuntime()
   const { i18n } = useTranslation()
   const activeLocale = i18n.language
   const pluginThemes = usePluginEditorThemeOptions()
   const themesSettled = usePluginEditorThemeStore(
     (state) =>
       state.runtimeStatus === 'failed' ||
-      (state.pending.generation > 0 &&
-        !state.loading &&
-        state.active.revision === state.pending.generation)
+      (state.pending.generation > 0 && !state.loading)
   )
   const darkPluginThemes = useMemo(
     () => pluginThemes.filter((theme) => matchesEditorThemeFamily(theme.mode, 'dark')),

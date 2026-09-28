@@ -98,6 +98,41 @@ describe('plugin editor theme startup ownership', () => {
     }
   )
 
+  it('retries one rejected cold request when later consumers ensure the catalog', async () => {
+    const bridge = installBridge()
+    const initialActive = editorThemes.usePluginEditorThemeStore.getState().active
+    editorThemes.ensurePluginEditorThemesLoaded()
+
+    await act(async () => {
+      bridge.requests[0]!.reject(new Error('temporary IPC failure'))
+      await bridge.requests[0]!.promise.catch(() => undefined)
+    })
+
+    const failedClosed = editorThemes.usePluginEditorThemeStore.getState()
+    expect(failedClosed.pending.generation).toBeGreaterThan(0)
+    expect(failedClosed.pending.registrations).toEqual([])
+    expect(failedClosed.active).toBe(initialActive)
+    expect(failedClosed.error).toBe('temporary IPC failure')
+
+    const firstConsumer = renderHook(() => editorThemes.usePluginEditorThemes())
+    const secondConsumer = renderHook(() => editorThemes.usePluginEditorThemes())
+
+    expect(bridge.listEditorThemes).toHaveBeenCalledTimes(2)
+
+    const recovered = theme('recovered-after-rejection')
+    await act(async () => {
+      bridge.requests[1]!.resolve([recovered])
+      await bridge.requests[1]!.promise
+    })
+
+    const recoveredState = editorThemes.usePluginEditorThemeStore.getState()
+    expect(recoveredState.pending.registrations).toEqual([recovered])
+    expect(recoveredState.error).toBeNull()
+    expect(recoveredState.active).toBe(initialActive)
+    expect(firstConsumer.result.current).toBe(initialActive)
+    expect(secondConsumer.result.current).toBe(initialActive)
+  })
+
   it('ignores unrelated changes and lets a content change supersede startup', async () => {
     const bridge = installBridge()
     editorThemes.ensurePluginEditorThemesLoaded()

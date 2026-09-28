@@ -248,7 +248,7 @@ describe('plugin editor theme artifacts', () => {
     ],
     [
       'editor color key longer than 128 characters',
-      themeRaw({ colors: { ['x'.repeat(129)]: '#0a0614' } })
+      themeRaw({ colors: { ...validTheme.colors, ['x'.repeat(129)]: '#0a0614' } })
     ],
     ['control character in a token name', themeRaw({ rules: [{ token: 'x\u0000y' }] })],
     [
@@ -314,11 +314,22 @@ describe('plugin editor theme artifacts', () => {
     }
   )
 
-  it.each(['__proto__', 'prototype', 'constructor'])('rejects editor color key %j', async (key) => {
-    const colors = Object.fromEntries([[key, '#0a0614']])
+  it.each(['__proto__', 'prototype', 'constructor'])(
+    'rejects editor color key %j as a prototype key',
+    async (key) => {
+      const colors = Object.fromEntries([
+        ...Object.entries(validTheme.colors),
+        [key, '#0a0614']
+      ])
 
-    expect(
-      await parsePluginEditorThemeArtifact(themeRaw({ colors }), 'dark')
-    ).toMatchObject(rejectedArtifact)
-  })
+      const result = await parsePluginEditorThemeArtifact(themeRaw({ colors }), 'dark')
+
+      expect(result.ok).toBe(false)
+      if (result.ok) {
+        return
+      }
+      expect(result.error).toContain(key)
+      expect(result.error).toMatch(/prototype key/i)
+    }
+  )
 })

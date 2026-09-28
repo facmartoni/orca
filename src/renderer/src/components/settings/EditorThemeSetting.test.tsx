@@ -235,12 +235,17 @@ function renderSetting(
   return { container, updateSettings }
 }
 
-it('loads Monaco setup when Settings mounts before any editor', async () => {
+it('loads theme registrations without Monaco when Settings mounts before any editor', async () => {
+  const listEditorThemes = vi.fn().mockResolvedValue([])
+  vi.stubGlobal('api', { plugins: { listEditorThemes } })
+  publishThemeOptions([], 0, [], 0, false, 'idle')
+
   renderSetting()
 
   await vi.waitFor(() => {
-    expect(monacoSetupLoaded).toHaveBeenCalledOnce()
+    expect(listEditorThemes).toHaveBeenCalledOnce()
   })
+  expect(monacoSetupLoaded).not.toHaveBeenCalled()
 })
 
 describe('EditorThemeSetting', () => {
@@ -319,7 +324,7 @@ describe('plugin editor themes in Settings', () => {
     expect(lightValues.slice(LIGHT_EDITOR_THEMES.length)).toEqual([betaLight.id])
   })
 
-  it('keeps active options and shows loading while pending is ahead', () => {
+  it('shows validated pending options while the active runtime catalog is behind', () => {
     const pendingOnly = pluginTheme('pending-only', 'dark', 'Pending Only')
     const active = pluginTheme('active', 'dark', 'Active')
     publishThemeOptions([pendingOnly], 4, [active], 3)
@@ -327,9 +332,9 @@ describe('plugin editor themes in Settings', () => {
     const { container } = renderSetting()
     const darkValues = optionValues(container.querySelectorAll('[data-slot="select"]')[0]!)
 
-    expect(darkValues).toContain(active.id)
-    expect(darkValues).not.toContain(pendingOnly.id)
-    expect(container.textContent).toMatch(/loading/i)
+    expect(darkValues).toContain(pendingOnly.id)
+    expect(darkValues).not.toContain(active.id)
+    expect(container.textContent).not.toMatch(/loading/i)
   })
 
   it('uses the owner-isolated active options once its revision matches pending', () => {
@@ -386,7 +391,7 @@ describe('plugin editor themes in Settings', () => {
 
   it('marks a selected theme unavailable only after absence is settled', () => {
     const missingId = pluginEditorThemeId('tests.missing-owner', 'missing')
-    publishThemeOptions([], 0, [], 0, true)
+    publishThemeOptions([], 8, [], 7, true)
     const { container } = renderSetting({ editorThemeDark: missingId })
     const darkSelect = container.querySelectorAll('[data-slot="select"]')[0]!
 

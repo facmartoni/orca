@@ -32,7 +32,7 @@ export function ensurePluginEditorThemeRuntimeLoaded(
     return runtimeLoad
   }
   markPluginEditorThemeRuntimeLoading()
-  // Monaco is a heavy renderer bundle; Settings loads it only when its UI mounts.
+  // Monaco is a heavy renderer bundle; callers must opt into loading its runtime explicitly.
   runtimeLoad = loadPluginEditorThemeRuntimeWithRetry(loadRuntime).catch((error: unknown) => {
     runtimeLoad = undefined
     markPluginEditorThemeRuntimeFailed()

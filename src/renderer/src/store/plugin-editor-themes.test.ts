@@ -2,6 +2,7 @@
 
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { resolveEditorTheme } from '@/lib/monaco-themes'
 import {
   pluginEditorThemeId,
   pluginEditorThemeMonacoName,
@@ -229,23 +230,34 @@ describe('plugin editor theme store', () => {
 })
 
 describe('plugin editor theme options', () => {
-  it('exposes only active all while pending is ahead and switches after active catches up', () => {
+  it('discovers validated pending themes until the matching active commit filters failed owners', () => {
     const admitted = theme('admitted', 'dark', 'Alpha')
-    const pendingOnly = theme('pending-only', 'dark', 'Bravo')
+    const failedDefinition = theme('failed-definition', 'dark', 'Bravo')
     const stale = theme('stale', 'dark', 'Old')
-    const pending = { generation: 30, registrations: [admitted, pendingOnly] as const }
+    const pending = {
+      generation: 30,
+      registrations: [admitted, failedDefinition] as const
+    }
     const staleActive = editorThemes.createPluginEditorThemeCatalog([stale], 29)
     editorThemes.usePluginEditorThemeStore.setState({
       pending,
-      active: staleActive
+      active: staleActive,
+      runtimeStatus: 'ready'
     })
 
     const consumer = renderHook(() => editorThemes.usePluginEditorThemeOptions())
-    expect(consumer.result.current).toBe(staleActive.all)
-    expect(consumer.result.current).toEqual([stale])
-    expect(consumer.result.current).not.toContain(pendingOnly)
 
-    const caughtUp = editorThemes.createPluginEditorThemeCatalog([admitted], pending.generation)
+    expect(consumer.result.current).toBe(pending.registrations)
+    expect(consumer.result.current).toEqual([admitted, failedDefinition])
+    expect(consumer.result.current).not.toContain(stale)
+    expect(
+      resolveEditorTheme({ editorThemeDark: failedDefinition.id }, true, staleActive)
+    ).toBe('vs-dark')
+
+    const caughtUp = editorThemes.createPluginEditorThemeCatalog(
+      [admitted],
+      pending.generation
+    )
     act(() => {
       editorThemes.usePluginEditorThemeStore.setState({ active: caughtUp })
     })
@@ -253,6 +265,13 @@ describe('plugin editor theme options', () => {
     expect(caughtUp.revision).toBe(pending.generation)
     expect(consumer.result.current).toBe(caughtUp.all)
     expect(consumer.result.current).toEqual([admitted])
+    expect(consumer.result.current).not.toContain(failedDefinition)
+    expect(resolveEditorTheme({ editorThemeDark: admitted.id }, true, caughtUp)).toBe(
+      admitted.monacoName
+    )
+    expect(
+      resolveEditorTheme({ editorThemeDark: failedDefinition.id }, true, caughtUp)
+    ).toBe('vs-dark')
   })
 
   it('keeps one globally ordered all array with the supplied generation revision', () => {

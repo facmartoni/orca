@@ -7,10 +7,8 @@ import { useSettingsRepoScrollEffects } from './use-settings-repo-scroll-effects
 import { buildSettingsViewModel, useSettingsNavigationActions } from './settings-view-model'
 import { renderSettingsLoading, renderSettingsPage } from './settings-page-renderer'
 import type { LoadedSettingsStoreModel, SettingsRenderContext } from './settings-render-context'
-import { usePluginEditorThemeRuntime } from '@/hooks/usePluginEditorThemeRuntime'
 
 function Settings(): React.JSX.Element {
-  usePluginEditorThemeRuntime()
   const model = useSettingsStoreModel()
   const interactions = useSettingsInteractionController(model)
   useSettingsPageEffects(model, interactions)
