@@ -48,6 +48,16 @@ function formatErrorPath(path: readonly PropertyKey[]): string {
     .join('.')
 }
 
+function invalidEditorThemeArtifact(error: string): { ok: false; error: string } {
+  return {
+    ok: false,
+    error: error.replace(
+      /[\u0000-\u001f\u007f-\u009f]/g,
+      (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`
+    )
+  }
+}
+
 const tokenNameSchema = z
   .string()
   .max(TOKEN_NAME_LIMIT)
@@ -126,33 +136,30 @@ export function parsePluginEditorThemeArtifact(
   try {
     source = JSON.parse(raw)
   } catch {
-    return { ok: false, error: 'editor theme artifact must contain valid JSON' }
+    return invalidEditorThemeArtifact('editor theme artifact must contain valid JSON')
   }
 
   const dangerousColorKey = dangerousOwnEditorColorKey(source)
   if (dangerousColorKey !== undefined) {
-    return {
-      ok: false,
-      error: `invalid editor theme artifact at ${formatErrorPath(['colors', dangerousColorKey])}: must not be a prototype key`
-    }
+    return invalidEditorThemeArtifact(
+      `invalid editor theme artifact at ${formatErrorPath(['colors', dangerousColorKey])}: must not be a prototype key`
+    )
   }
 
   const parsed = pluginEditorThemeArtifactSchema.safeParse(source)
   if (!parsed.success) {
     const issue = parsed.error.issues[0]
     const location = issue?.path.length ? ` at ${formatErrorPath(issue.path)}` : ''
-    return {
-      ok: false,
-      error: `invalid editor theme artifact${location}: ${issue?.message ?? 'unknown error'}`
-    }
+    return invalidEditorThemeArtifact(
+      `invalid editor theme artifact${location}: ${issue?.message ?? 'unknown error'}`
+    )
   }
 
   const expectedBase = BASE_BY_MODE[mode]
   if (parsed.data.base !== expectedBase) {
-    return {
-      ok: false,
-      error: `editor theme base ${parsed.data.base} does not match ${mode}; expected ${expectedBase}`
-    }
+    return invalidEditorThemeArtifact(
+      `editor theme base ${parsed.data.base} does not match ${mode}; expected ${expectedBase}`
+    )
   }
 
   return { ok: true, data: parsed.data }

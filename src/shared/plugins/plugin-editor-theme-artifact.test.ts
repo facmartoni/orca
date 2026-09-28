@@ -222,6 +222,29 @@ describe('plugin editor theme artifacts', () => {
     }
   )
 
+  it.each([
+    ['root', '\u007f', '\\u007f'],
+    ['root', '\u0085', '\\u0085'],
+    ['rule', '\u007f', '\\u007f'],
+    ['rule', '\u0085', '\\u0085']
+  ] as const)(
+    'sanitizes an unknown %s key containing a control character',
+    async (scope, control, escapedControl) => {
+      const unknownKey = `unknown${control}key`
+      const raw =
+        scope === 'root'
+          ? themeRaw({ [unknownKey]: true })
+          : themeRaw({ rules: [{ token: 'x', [unknownKey]: true }] })
+      const result = await parsePluginEditorThemeArtifact(raw, 'dark')
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error).toContain('unknown')
+      expect(result.error).toContain(escapedControl)
+      expect(result.error).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/)
+    }
+  )
+
   it.each(['__proto__', 'prototype', 'constructor'])('rejects editor color key %j', async (key) => {
     const colors = Object.fromEntries([[key, '#0a0614']])
 
