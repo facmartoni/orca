@@ -72,7 +72,16 @@ Orca persists a public theme ID in settings:
 
 The example resolves to `example.aurora-editor-theme/aurora-dark`. Authors use this qualified ID in support material and configuration. Orca derives a separate Monaco-safe internal name; do not put that internal name in the manifest or Settings instructions.
 
-A plugin can contribute at most 16 editor themes. Every local `id` must be unique within the plugin. Each mode accepts one matching Monaco base:
+A plugin can contribute at most 16 editor themes. Every local `id` must be unique within the plugin. Each contribution uses these bounds:
+
+| Manifest field | Contract |
+| --- | --- |
+| `id` | 1–64 characters; kebab-case using lowercase `a-z`, digits, and single dashes. Reserved prototype names are rejected. |
+| `label` | Trimmed length of 1–256 characters. |
+| `mode` | One of `dark`, `light`, `hc-dark`, or `hc-light`. |
+| `path` | 1–1,024 characters; a portable relative path confined to the plugin root. |
+
+Each mode accepts one matching Monaco base:
 
 | `mode` | Required `base` |
 | --- | --- |
@@ -90,13 +99,14 @@ The theme file is strict JSON. The root accepts only `base`, `inherit`, `rules`,
 | Field | Contract |
 | --- | --- |
 | File size | At most 256 KiB. |
-| `rules` | At most 4,096 token rules. Each rule requires `token` and may include `foreground`, `background`, and `fontStyle`. |
-| Token colors | Exactly six hexadecimal digits (`RRGGBB`) without `#`. A theme may use at most 224 distinct token foreground/background colors. |
-| `fontStyle` | Empty or a space-separated combination of `italic`, `bold`, `underline`, and `strikethrough`. |
-| `colors` | At most 2,048 editor color entries. Values are `#RRGGBB` or `#RRGGBBAA`. |
+| `rules` | At most 4,096 token rules. Each strict rule requires `token` and may include `foreground`, `background`, and `fontStyle`. |
+| `token` | At most 256 characters and no C0, DEL, or C1 control characters. |
+| Token colors | Optional `foreground` and `background` values use exactly six hexadecimal digits (`RRGGBB`) without `#`. A theme may use at most 224 distinct token colors across both fields. |
+| `fontStyle` | At most 64 characters; empty or a space-separated combination of `italic`, `bold`, `underline`, and `strikethrough`. |
+| `colors` | At most 2,048 editor color entries. Keys are 1–128 characters with no control characters or prototype keys; values are `#RRGGBB` or `#RRGGBBAA`. |
 | Required colors | `editor.foreground` and `editor.background` must both be present. |
 
-Token names are bounded strings, and editor color keys reject control characters and prototype keys. These constraints are part of the author contract, not recommendations.
+Editor color keys named `__proto__`, `prototype`, or `constructor` are rejected. These constraints are part of the author contract, not recommendations.
 
 ## Security and lifecycle
 
@@ -109,4 +119,6 @@ Token names are bounded strings, and editor color keys reject control characters
 
 ## Current scope
 
-Editor themes are desktop-only in this version. They style Monaco editor surfaces; they do not provide application themes, terminal themes, icon themes, or web-client themes. This contract also does not add editor themes to marketplace distribution.
+Editor themes are desktop-only in this version. They style Monaco editor surfaces; they do not provide application themes, terminal themes, icon themes, or web-client themes.
+
+The generic marketplace category `themes` remains deferred and hidden. That category does not block distribution: a plugin whose valid manifest contains `editorThemes` can be installed from a local path, Git, or a compatible marketplace source. This contract does not promise inclusion in Orca's official plugin catalog.
