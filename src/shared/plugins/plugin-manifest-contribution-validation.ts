@@ -12,6 +12,7 @@ type ContributionValidationManifest = {
     commands: (IdentifiedContribution & { action?: string; context?: 'global' | 'worktree' })[]
     events: { on: string }[]
     languagePacks: { locale: string }[]
+    editorThemes: IdentifiedContribution[]
     keybindings: { command: string; key: string; when?: 'global' | 'worktree' }[]
     vmRecipes: PathContribution[]
     agents: PathContribution[]
@@ -58,6 +59,13 @@ export function validatePluginManifestContributions(
     (entry) => (entry as { locale: string }).locale.toLowerCase(),
     'languagePacks',
     'language pack locale',
+    ctx
+  )
+  rejectDuplicateValues(
+    manifest.contributes.editorThemes,
+    (entry) => (entry as IdentifiedContribution).id,
+    'editorThemes',
+    'editor theme id',
     ctx
   )
   for (const path of ['vmRecipes', 'agents'] as const) {

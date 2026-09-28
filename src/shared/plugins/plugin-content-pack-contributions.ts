@@ -1,11 +1,17 @@
 import { z } from 'zod'
-import { pluginCommandIdSchema, pluginRelativePathSchema } from './plugin-manifest-fields'
+import {
+  pluginCommandIdSchema,
+  pluginIdSchema,
+  pluginRelativePathSchema
+} from './plugin-manifest-fields'
 import { normalizeKeybinding } from '../keybindings'
 
 export const PLUGIN_LANGUAGE_PACK_LIMIT = 16
 export const PLUGIN_KEYBINDING_LIMIT = 256
 export const PLUGIN_VM_RECIPE_LIMIT = 64
 export const PLUGIN_AGENT_PROFILE_LIMIT = 64
+export const PLUGIN_EDITOR_THEME_LIMIT = 16
+export const PLUGIN_EDITOR_THEME_MODES = ['dark', 'light', 'hc-dark', 'hc-light'] as const
 
 // Why: locale ids become i18next bundle keys and filenames. This bounded BCP
 // 47 subset covers current community packs without accepting path syntax.
@@ -21,6 +27,20 @@ export const pluginLanguagePackContributionSchema = z
     path: pluginRelativePathSchema
   })
   .strict()
+
+export const pluginEditorThemeContributionSchema = z
+  .object({
+    id: pluginIdSchema,
+    label: z.string().trim().min(1).max(256),
+    mode: z.enum(PLUGIN_EDITOR_THEME_MODES),
+    path: pluginRelativePathSchema
+  })
+  .strict()
+
+export type PluginEditorThemeMode = (typeof PLUGIN_EDITOR_THEME_MODES)[number]
+export type PluginEditorThemeContribution = z.infer<
+  typeof pluginEditorThemeContributionSchema
+>
 
 export const pluginKeybindingContributionSchema = z
   .object({
