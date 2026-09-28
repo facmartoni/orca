@@ -48,7 +48,7 @@ function installBridge() {
     listeners.push(listener)
     const unsubscribe = vi.fn(() => {
       const index = listeners.indexOf(listener)
-      if (index >= 0) {
+      if (index !== -1) {
         listeners.splice(index, 1)
       }
     })

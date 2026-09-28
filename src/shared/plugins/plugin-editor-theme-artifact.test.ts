@@ -37,11 +37,11 @@ function themeRaw(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({ ...validTheme, ...overrides })
 }
 
-function tokenRules(count: number): Array<{ token: string }> {
+function tokenRules(count: number): { token: string }[] {
   return Array.from({ length: count }, (_, index) => ({ token: `t${index}` }))
 }
 
-function tokenColorRules(count: number): Array<{ token: string; foreground: string }> {
+function tokenColorRules(count: number): { token: string; foreground: string }[] {
   return Array.from({ length: count }, (_, index) => ({
     token: `color${index}`,
     foreground: index.toString(16).padStart(6, '0')
@@ -57,6 +57,16 @@ function editorColors(count: number): Record<string, string> {
       '#0a0614'
     ])
   ])
+}
+
+function hasControlCharacter(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) {
+      return true
+    }
+  }
+  return false
 }
 
 const rejectedArtifact = {
@@ -271,9 +281,11 @@ describe('plugin editor theme artifacts', () => {
       const result = await parsePluginEditorThemeArtifact(themeRaw({ colors }), 'dark')
 
       expect(result.ok).toBe(false)
-      if (result.ok) return
+      if (result.ok) {
+        return
+      }
       expect(result.error).toContain(escapedKey)
-      expect(result.error).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/)
+      expect(hasControlCharacter(result.error)).toBe(false)
     }
   )
 
@@ -293,10 +305,12 @@ describe('plugin editor theme artifacts', () => {
       const result = await parsePluginEditorThemeArtifact(raw, 'dark')
 
       expect(result.ok).toBe(false)
-      if (result.ok) return
+      if (result.ok) {
+        return
+      }
       expect(result.error).toContain('unknown')
       expect(result.error).toContain(escapedControl)
-      expect(result.error).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/)
+      expect(hasControlCharacter(result.error)).toBe(false)
     }
   )
 

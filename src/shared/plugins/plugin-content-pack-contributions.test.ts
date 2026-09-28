@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parsePluginManifest, pluginManifestSchema } from './plugin-manifest'
-import * as contentPackContributionSchemas from './plugin-content-pack-contributions'
+import { pluginEditorThemeContributionSchema } from './plugin-content-pack-contributions'
 
 function manifest(contributes: Record<string, unknown>): Record<string, unknown> {
   return {
@@ -16,10 +16,6 @@ function manifest(contributes: Record<string, unknown>): Record<string, unknown>
   }
 }
 
-type SafeParseSchema = {
-  safeParse(value: unknown): { success: boolean }
-}
-
 const editorThemeContribution = (overrides: Record<string, unknown> = {}) => ({
   id: 'robbydev',
   label: 'RobbyDev',
@@ -27,16 +23,6 @@ const editorThemeContribution = (overrides: Record<string, unknown> = {}) => ({
   path: 'themes/robbydev.json',
   ...overrides
 })
-
-function editorThemeContributionSchema(): SafeParseSchema {
-  const schema = Reflect.get(
-    contentPackContributionSchemas,
-    'pluginEditorThemeContributionSchema'
-  ) as SafeParseSchema | undefined
-
-  expect(schema, 'pluginEditorThemeContributionSchema must be exported').toBeDefined()
-  return schema as SafeParseSchema
-}
 
 describe('content-pack manifest contributions', () => {
   it('accepts the documented P1 contribution set without a worker', () => {
@@ -190,7 +176,7 @@ describe('content-pack manifest contributions', () => {
   it.each(['dark', 'light', 'hc-dark', 'hc-light'])(
     'accepts supported editor theme mode %j',
     (mode) => {
-      const parsed = editorThemeContributionSchema().safeParse(
+      const parsed = pluginEditorThemeContributionSchema.safeParse(
         editorThemeContribution({ mode })
       )
 
@@ -199,13 +185,13 @@ describe('content-pack manifest contributions', () => {
   )
 
   it.each(['sepia', '', 'DARK'])('rejects unsupported editor theme mode %j', (mode) => {
-    const parsed = editorThemeContributionSchema().safeParse(editorThemeContribution({ mode }))
+    const parsed = pluginEditorThemeContributionSchema.safeParse(editorThemeContribution({ mode }))
 
     expect(parsed.success).toBe(false)
   })
 
   it.each(['', '   ', 'x'.repeat(257)])('rejects invalid editor theme label %j', (label) => {
-    const parsed = editorThemeContributionSchema().safeParse(editorThemeContribution({ label }))
+    const parsed = pluginEditorThemeContributionSchema.safeParse(editorThemeContribution({ label }))
 
     expect(parsed.success).toBe(false)
   })
@@ -213,7 +199,7 @@ describe('content-pack manifest contributions', () => {
   it.each(['', '../robbydev.json', '/themes/robbydev.json', 'themes/../robbydev.json'])(
     'rejects unsafe editor theme path %j',
     (path) => {
-      const parsed = editorThemeContributionSchema().safeParse(
+      const parsed = pluginEditorThemeContributionSchema.safeParse(
         editorThemeContribution({ path })
       )
 

@@ -122,10 +122,11 @@ export function GeneralPane({
     (activeRuntimeTarget.kind === 'local' ||
       activeRuntimeTarget.environmentId === sourceDefaultsSupportedRuntimeEnvironmentId)
   const generalNavigationSearchEntries = getGeneralNavigationSearchEntries()
-  const generalEditorSearchEntries = useMemo(
-    () => getGeneralEditorSearchEntries(pluginEditorThemes),
-    [pluginEditorThemes, activeLocale]
-  )
+  // Search helper reads translations indirectly; capture locale to refresh memoized metadata.
+  const generalEditorSearchEntries = useMemo(() => {
+    void activeLocale
+    return getGeneralEditorSearchEntries(pluginEditorThemes)
+  }, [pluginEditorThemes, activeLocale])
   const tabOrderKeywords = getTabOrderControlSearchKeywords(generalNavigationSearchEntries)
   const projectRuntimeSearchEntries = wslSupportedPlatform
     ? getGeneralProjectRuntimeSearchEntries()

@@ -212,7 +212,7 @@ describe('plugin editor theme store', () => {
     const registrations = [darkZ, hcLight, light, darkA, hcDark]
 
     const catalog = editorThemes.createPluginEditorThemeCatalog(registrations, 47)
-    const reversed = editorThemes.createPluginEditorThemeCatalog([...registrations].reverse(), 47)
+    const reversed = editorThemes.createPluginEditorThemeCatalog(registrations.toReversed(), 47)
     expect([...catalog.byId.keys()]).toEqual([...reversed.byId.keys()])
     expect(catalog.dark.map((registration) => registration.id)).toEqual([darkA.id, darkZ.id])
     expect(catalog.light.map((registration) => registration.id)).toEqual([light.id])

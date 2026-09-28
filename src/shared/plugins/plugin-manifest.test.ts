@@ -111,7 +111,9 @@ describe('pluginManifestSchema boundaries', () => {
     })
 
     expect(result.success).toBe(true)
-    if (!result.success) return
+    if (!result.success) {
+      return
+    }
     expect(result.data.main).toBeUndefined()
     expect(result.data.contributes.editorThemes).toHaveLength(1)
   })

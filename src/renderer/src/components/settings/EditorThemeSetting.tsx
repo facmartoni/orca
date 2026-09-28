@@ -107,14 +107,15 @@ export function EditorThemeSetting({
     () => getPluginThemeLabelCollisions(LIGHT_EDITOR_THEMES, lightPluginThemes),
     [lightPluginThemes]
   )
-  const darkSearchKeywords = useMemo(
-    () => getEditorThemeSearchKeywords(pluginThemes, 'dark'),
-    [pluginThemes, activeLocale]
-  )
-  const lightSearchKeywords = useMemo(
-    () => getEditorThemeSearchKeywords(pluginThemes, 'light'),
-    [pluginThemes, activeLocale]
-  )
+  // Search helpers read translations indirectly; capture locale to refresh memoized metadata.
+  const darkSearchKeywords = useMemo(() => {
+    void activeLocale
+    return getEditorThemeSearchKeywords(pluginThemes, 'dark')
+  }, [pluginThemes, activeLocale])
+  const lightSearchKeywords = useMemo(() => {
+    void activeLocale
+    return getEditorThemeSearchKeywords(pluginThemes, 'light')
+  }, [pluginThemes, activeLocale])
 
   const darkThemeTitle = translate(
     'auto.components.settings.EditorThemeSetting.darkTitle',

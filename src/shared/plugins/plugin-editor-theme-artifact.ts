@@ -9,12 +9,12 @@ import { isQualifiedPluginKey } from './plugin-tab-key'
 export type PluginEditorThemeData = {
   base: 'vs' | 'vs-dark' | 'hc-black' | 'hc-light'
   inherit: boolean
-  rules: Array<{
+  rules: {
     token: string
     foreground?: string
     background?: string
     fontStyle?: string
-  }>
+  }[]
   colors: Record<string, string>
 }
 
@@ -49,7 +49,33 @@ const DANGEROUS_KEYS = {
   prototype: true,
   constructor: true
 } as const satisfies Record<string, true>
-const CONTROL_CHARACTER_RE = /[\u0000-\u001f\u007f-\u009f]/
+function isControlCharacterCode(code: number): boolean {
+  return code <= 0x1f || (code >= 0x7f && code <= 0x9f)
+}
+
+function containsControlCharacter(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    if (isControlCharacterCode(value.charCodeAt(index))) {
+      return true
+    }
+  }
+  return false
+}
+
+function escapeControlCharacters(value: string): string {
+  let escaped = ''
+  let copyStart = 0
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    if (!isControlCharacterCode(code)) {
+      continue
+    }
+    escaped += value.slice(copyStart, index)
+    escaped += `\\u${code.toString(16).padStart(4, '0')}`
+    copyStart = index + 1
+  }
+  return copyStart === 0 ? value : escaped + value.slice(copyStart)
+}
 const TOKEN_COLOR_RE = /^[0-9a-f]{6}$/i
 const EDITOR_COLOR_RE = /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i
 const FONT_STYLE_RE =
@@ -60,29 +86,22 @@ function formatErrorPath(path: readonly PropertyKey[]): string {
     .map((segment) => {
       const value = typeof segment === 'symbol' ? String(segment) : segment
       const serialized = JSON.stringify(value)
-      if (serialized === undefined) return '""'
-      return serialized.replace(
-        /[\u007f-\u009f]/g,
-        (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`
-      )
+      if (serialized === undefined) {
+        return '""'
+      }
+      return escapeControlCharacters(serialized)
     })
     .join('.')
 }
 
 function invalidEditorThemeArtifact(error: string): { ok: false; error: string } {
-  return {
-    ok: false,
-    error: error.replace(
-      /[\u0000-\u001f\u007f-\u009f]/g,
-      (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`
-    )
-  }
+  return { ok: false, error: escapeControlCharacters(error) }
 }
 
 const tokenNameSchema = z
   .string()
   .max(TOKEN_NAME_LIMIT)
-  .refine((value) => !CONTROL_CHARACTER_RE.test(value), 'must not contain control characters')
+  .refine((value) => !containsControlCharacter(value), 'must not contain control characters')
 
 const tokenColorSchema = z.string().regex(TOKEN_COLOR_RE, 'must be RRGGBB without #')
 
@@ -105,8 +124,12 @@ const tokenRulesSchema = z
   .refine((rules) => {
     const colors = new Set<string>()
     for (const rule of rules) {
-      if (rule.foreground) colors.add(rule.foreground.toUpperCase())
-      if (rule.background) colors.add(rule.background.toUpperCase())
+      if (rule.foreground) {
+        colors.add(rule.foreground.toUpperCase())
+      }
+      if (rule.background) {
+        colors.add(rule.background.toUpperCase())
+      }
     }
     return colors.size <= TOKEN_COLOR_LIMIT
   }, `must use at most ${TOKEN_COLOR_LIMIT} distinct token colors`)
@@ -116,7 +139,7 @@ const editorColorKeySchema = z
   .min(1)
   .max(EDITOR_COLOR_KEY_LIMIT)
   .refine((value) => DANGEROUS_KEYS[value] !== true, 'must not be a prototype key')
-  .refine((value) => !CONTROL_CHARACTER_RE.test(value), 'must not contain control characters')
+  .refine((value) => !containsControlCharacter(value), 'must not contain control characters')
 
 const editorColorSchema = z
   .string()
@@ -153,7 +176,7 @@ function dangerousOwnEditorColorKey(source: unknown): string | undefined {
     return undefined
   }
   for (const key of Object.keys(colors)) {
-    if (Object.prototype.hasOwnProperty.call(DANGEROUS_KEYS, key)) {
+    if (Object.hasOwn(DANGEROUS_KEYS, key)) {
       return key
     }
   }
@@ -269,6 +292,8 @@ export function pluginEditorThemeId(
 export function pluginEditorThemeMonacoName(id: PluginEditorThemeId): string {
   const bytes = new TextEncoder().encode(id)
   let encoded = ''
-  for (const byte of bytes) encoded += byte.toString(16).padStart(2, '0')
+  for (const byte of bytes) {
+    encoded += byte.toString(16).padStart(2, '0')
+  }
   return `orca-plugin-theme-${encoded}`
 }

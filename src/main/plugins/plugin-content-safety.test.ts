@@ -126,10 +126,10 @@ const unsafeThemeFixtures = [
       return { root, themePath: 'themes/theme.json' }
     }
   }
-] satisfies ReadonlyArray<{
+] satisfies readonly {
   name: string
   setup: () => Promise<UnsafeThemeFixture>
-}>
+}[]
 
 afterEach(async () => {
   vi.restoreAllMocks()
