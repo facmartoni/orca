@@ -1,0 +1,112 @@
+---
+title: Plugin editor themes
+description: Add bounded, declarative Monaco editor themes to Orca plugins.
+keywords:
+  - Orca plugins
+  - editor themes
+  - Monaco
+  - editorThemes
+---
+
+import { Callout } from '@/components/docs/prose'
+
+`contributes.editorThemes` lets a desktop plugin provide validated Monaco themes without running a plugin worker. An editor-theme-only plugin can omit `main` and declare `capabilities: []`.
+
+<Callout title="Compatibility">
+  Orca 1.4.215 does not support `contributes.editorThemes`; it rejects the contribution as an unknown manifest field. Set `engines.orca` to the first stable Orca release that contains this extension. Do not guess that version from an unreleased build.
+</Callout>
+
+## Add a theme
+
+Create `orca-plugin.json` at the plugin root and keep the theme file inside that root. The JSON below is a valid fragment showing only the fields relevant to the editor theme; it is not a complete plugin manifest.
+
+```json
+{
+  "publisher": "example",
+  "id": "aurora-editor-theme",
+  "contributes": {
+    "editorThemes": [
+      {
+        "id": "aurora-dark",
+        "label": "Aurora Dark",
+        "mode": "dark",
+        "path": "themes/aurora-dark.json"
+      }
+    ]
+  },
+  "capabilities": []
+}
+```
+
+A complete manifest must also include the standard required fields and set `engines.orca` using the exact `>=x.y.z` grammar. Use the first stable Orca release published with this API as `x.y.z`. Orca 1.4.215 is not compatible, and no unreleased build number is a valid substitute.
+
+Create `themes/aurora-dark.json`:
+
+```json
+{
+  "base": "vs-dark",
+  "inherit": true,
+  "rules": [
+    {
+      "token": "keyword",
+      "foreground": "12E5A3",
+      "fontStyle": "bold"
+    }
+  ],
+  "colors": {
+    "editor.background": "#102938",
+    "editor.foreground": "#D9E2EC"
+  }
+}
+```
+
+After adding the plugin under **Settings → Plugins → Development**, review and enable it. Select **Aurora Dark** under **Settings → General → Editor Theme (Dark Mode)**.
+
+## Identity and modes
+
+Orca persists a public theme ID in settings:
+
+```text
+<publisher>.<plugin-id>/<theme-id>
+```
+
+The example resolves to `example.aurora-editor-theme/aurora-dark`. Authors use this qualified ID in support material and configuration. Orca derives a separate Monaco-safe internal name; do not put that internal name in the manifest or Settings instructions.
+
+A plugin can contribute at most 16 editor themes. Every local `id` must be unique within the plugin. Each mode accepts one matching Monaco base:
+
+| `mode` | Required `base` |
+| --- | --- |
+| `dark` | `vs-dark` |
+| `light` | `vs` |
+| `hc-dark` | `hc-black` |
+| `hc-light` | `hc-light` |
+
+A mismatched mode/base pair is invalid.
+
+## Theme JSON contract
+
+The theme file is strict JSON. The root accepts only `base`, `inherit`, `rules`, and `colors`; all four are required. Unknown root or rule fields fail validation.
+
+| Field | Contract |
+| --- | --- |
+| File size | At most 256 KiB. |
+| `rules` | At most 4,096 token rules. Each rule requires `token` and may include `foreground`, `background`, and `fontStyle`. |
+| Token colors | Exactly six hexadecimal digits (`RRGGBB`) without `#`. A theme may use at most 224 distinct token foreground/background colors. |
+| `fontStyle` | Empty or a space-separated combination of `italic`, `bold`, `underline`, and `strikethrough`. |
+| `colors` | At most 2,048 editor color entries. Values are `#RRGGBB` or `#RRGGBBAA`. |
+| Required colors | `editor.foreground` and `editor.background` must both be present. |
+
+Token names are bounded strings, and editor color keys reject control characters and prototype keys. These constraints are part of the author contract, not recommendations.
+
+## Security and lifecycle
+
+- `path` must be a portable relative path within the plugin. Absolute paths, `..`, directories, and real-path escapes through symlinks are rejected.
+- Orca validates bounded theme bytes on the host and binds installed content to its approved content hash. The renderer never reads plugin files directly.
+- An invalid theme makes installation or update fail before activation. If a development plugin becomes invalid during reconciliation, Orca excludes that plugin owner's themes while keeping other owners available.
+- Disabling the plugin keeps the qualified theme ID in Settings but marks it unavailable. Open editors use the non-destructive `vs-dark` or `vs` fallback. Re-enabling the plugin restores the selection without requiring another choice.
+- A valid update with the same qualified ID redefines the Monaco theme. Development-path changes are observed by the plugin watcher; installed updates become active only after validation succeeds.
+- Users still review and enable a declarative plugin. With no `main` and `capabilities: []`, the theme contribution runs no background worker and receives no Orca API capability.
+
+## Current scope
+
+Editor themes are desktop-only in this version. They style Monaco editor surfaces; they do not provide application themes, terminal themes, icon themes, or web-client themes. This contract also does not add editor themes to marketplace distribution.
