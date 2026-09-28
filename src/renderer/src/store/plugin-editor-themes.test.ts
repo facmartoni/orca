@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   pluginEditorThemeId,
@@ -222,5 +222,78 @@ describe('plugin editor theme store', () => {
     })
     expect(darkA.monacoName).not.toMatch(/[./]/)
     expect(catalog.revision).toBe(47)
+  })
+})
+
+describe('plugin editor theme options', () => {
+  it('exposes only active all while pending is ahead and switches after active catches up', () => {
+    const admitted = theme('admitted', 'dark', 'Alpha')
+    const pendingOnly = theme('pending-only', 'dark', 'Bravo')
+    const stale = theme('stale', 'dark', 'Old')
+    const pending = { generation: 30, registrations: [admitted, pendingOnly] as const }
+    const staleActive = editorThemes.createPluginEditorThemeCatalog([stale], 29)
+    editorThemes.usePluginEditorThemeStore.setState({
+      pending,
+      active: staleActive
+    })
+
+    const consumer = renderHook(() => editorThemes.usePluginEditorThemeOptions())
+    expect(consumer.result.current).toBe(staleActive.all)
+    expect(consumer.result.current).toEqual([stale])
+    expect(consumer.result.current).not.toContain(pendingOnly)
+
+    const caughtUp = editorThemes.createPluginEditorThemeCatalog([admitted], pending.generation)
+    act(() => {
+      editorThemes.usePluginEditorThemeStore.setState({ active: caughtUp })
+    })
+
+    expect(caughtUp.revision).toBe(pending.generation)
+    expect(consumer.result.current).toBe(caughtUp.all)
+    expect(consumer.result.current).toEqual([admitted])
+  })
+
+  it('keeps one globally ordered all array with the supplied generation revision', () => {
+    const zulu = theme('zulu', 'dark', 'Zulu')
+    const alpha = theme('alpha', 'light', 'Alpha')
+    const bravo = theme('bravo', 'hc-dark', 'Bravo')
+
+    const catalog = editorThemes.createPluginEditorThemeCatalog([zulu, alpha, bravo], 41)
+
+    expect(catalog.revision).toBe(41)
+    expect(catalog.all).toEqual([alpha, bravo, zulu])
+    expect(catalog.all.map((registration) => registration.id)).toEqual([
+      alpha.id,
+      bravo.id,
+      zulu.id
+    ])
+  })
+})
+
+describe('plugin editor theme active commit races', () => {
+  it('rejects the old generation while a newer refresh is still loading', async () => {
+    const first = theme('first-generation')
+    const nextResponse = Promise.withResolvers<PluginEditorThemeRegistration[]>()
+    const listEditorThemes = vi
+      .fn()
+      .mockResolvedValueOnce([first])
+      .mockReturnValueOnce(nextResponse.promise)
+    vi.stubGlobal('api', { plugins: { listEditorThemes } })
+
+    await editorThemes.refreshPluginEditorThemes()
+    const oldPending = editorThemes.usePluginEditorThemeStore.getState().pending
+    const activeBeforeRefresh = editorThemes.usePluginEditorThemeStore.getState().active
+    const oldCatalog = editorThemes.createPluginEditorThemeCatalog(
+      oldPending.registrations,
+      oldPending.generation
+    )
+
+    const newerRefresh = editorThemes.refreshPluginEditorThemes()
+    expect(editorThemes.usePluginEditorThemeStore.getState().loading).toBe(true)
+    editorThemes.commitActivePluginEditorThemes(oldPending.generation, oldCatalog)
+
+    expect(editorThemes.usePluginEditorThemeStore.getState().active).toBe(activeBeforeRefresh)
+
+    nextResponse.resolve([])
+    await newerRefresh
   })
 })

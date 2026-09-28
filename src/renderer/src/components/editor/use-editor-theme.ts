@@ -1,5 +1,6 @@
 import { useAppStore } from '@/store'
 import { resolveEditorTheme } from '@/lib/monaco-themes'
+import { usePluginEditorThemes } from '@/store/plugin-editor-themes'
 import { useDocumentDarkTheme } from './use-document-dark-theme'
 
 /**
@@ -9,5 +10,6 @@ import { useDocumentDarkTheme } from './use-document-dark-theme'
 export function useEditorTheme(): string {
   const settings = useAppStore((s) => s.settings)
   const isDark = useDocumentDarkTheme()
-  return resolveEditorTheme(settings, isDark)
+  const pluginThemes = usePluginEditorThemes()
+  return resolveEditorTheme(settings, isDark, pluginThemes)
 }

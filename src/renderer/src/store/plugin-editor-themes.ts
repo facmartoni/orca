@@ -1,12 +1,11 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
-import {
-  parsePluginEditorThemeRegistration,
-  type PluginEditorThemeRegistration
-} from '../../../shared/plugins/plugin-editor-theme-artifact'
+import { parsePluginEditorThemeRegistration } from '../../../shared/plugins/plugin-editor-theme-artifact'
+import type { PluginEditorThemeRegistration } from '../../../shared/plugins/plugin-editor-theme-artifact'
 
 export type PluginEditorThemeCatalog = {
   byId: ReadonlyMap<string, PluginEditorThemeRegistration>
+  all: readonly PluginEditorThemeRegistration[]
   dark: readonly PluginEditorThemeRegistration[]
   light: readonly PluginEditorThemeRegistration[]
   hcDark: readonly PluginEditorThemeRegistration[]
@@ -34,25 +33,30 @@ const STARTUP_REQUEST_JOIN_WINDOW_MS = 10_000
 
 let requestGeneration = 0
 let latestRequestStartedAt: number | null = null
-let changeSubscriptionStarted = false
+let disposePluginEditorThemeChangeBridge: (() => void) | undefined
 
-const initialCatalog: PluginEditorThemeCatalog = {
+const EMPTY_PLUGIN_EDITOR_THEME_REGISTRATIONS: readonly PluginEditorThemeRegistration[] = []
+
+export const EMPTY_PLUGIN_EDITOR_THEME_CATALOG: PluginEditorThemeCatalog = {
   byId: new Map(),
-  dark: [],
-  light: [],
-  hcDark: [],
-  hcLight: [],
+  all: EMPTY_PLUGIN_EDITOR_THEME_REGISTRATIONS,
+  dark: EMPTY_PLUGIN_EDITOR_THEME_REGISTRATIONS,
+  light: EMPTY_PLUGIN_EDITOR_THEME_REGISTRATIONS,
+  hcDark: EMPTY_PLUGIN_EDITOR_THEME_REGISTRATIONS,
+  hcLight: EMPTY_PLUGIN_EDITOR_THEME_REGISTRATIONS,
   revision: 0
 }
 
 export const usePluginEditorThemeStore = create<PluginEditorThemeState>()((set) => ({
   pending: { generation: 0, registrations: [] },
-  active: initialCatalog,
+  active: EMPTY_PLUGIN_EDITOR_THEME_CATALOG,
   loading: false,
   error: null,
   commitActivePluginEditorThemes: (generation, catalog) =>
     set((state) =>
-      generation === state.pending.generation && catalog.revision === generation
+      !state.loading &&
+      generation === state.pending.generation &&
+      catalog.revision === generation
         ? { active: catalog }
         : state
     )
@@ -62,8 +66,8 @@ export function createPluginEditorThemeCatalog(
   registrations: readonly PluginEditorThemeRegistration[],
   revision: number
 ): PluginEditorThemeCatalog {
-  const ordered = [...registrations]
-  ordered.sort(
+  const all = [...registrations]
+  all.sort(
     (left, right) => left.label.localeCompare(right.label) || left.id.localeCompare(right.id)
   )
 
@@ -73,7 +77,7 @@ export function createPluginEditorThemeCatalog(
   const hcDark: PluginEditorThemeRegistration[] = []
   const hcLight: PluginEditorThemeRegistration[] = []
 
-  for (const registration of ordered) {
+  for (const registration of all) {
     byId.set(registration.id, registration)
     switch (registration.mode) {
       case 'dark':
@@ -91,7 +95,7 @@ export function createPluginEditorThemeCatalog(
     }
   }
 
-  return { byId, dark, light, hcDark, hcLight, revision }
+  return { byId, all, dark, light, hcDark, hcLight, revision }
 }
 
 export async function refreshPluginEditorThemes(): Promise<void> {
@@ -155,14 +159,23 @@ export function ensurePluginEditorThemesLoaded(): void {
     void refreshPluginEditorThemes()
   }
 
-  if (!changeSubscriptionStarted && window.api?.plugins?.onChanged) {
-    window.api.plugins.onChanged((event) => {
+  const onChanged = window.api?.plugins?.onChanged
+  if (!disposePluginEditorThemeChangeBridge && onChanged) {
+    disposePluginEditorThemeChangeBridge = onChanged((event) => {
       if (event?.contentPacksChanged ?? true) {
         void refreshPluginEditorThemes()
       }
     })
-    changeSubscriptionStarted = true
   }
+}
+
+export function disposePluginEditorThemeChangeSubscription(): void {
+  disposePluginEditorThemeChangeBridge?.()
+  disposePluginEditorThemeChangeBridge = undefined
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(disposePluginEditorThemeChangeSubscription)
 }
 
 export function commitActivePluginEditorThemes(
@@ -170,6 +183,10 @@ export function commitActivePluginEditorThemes(
   catalog: PluginEditorThemeCatalog
 ): void {
   usePluginEditorThemeStore.getState().commitActivePluginEditorThemes(generation, catalog)
+}
+
+export function usePluginEditorThemeOptions(): readonly PluginEditorThemeRegistration[] {
+  return usePluginEditorThemeStore((state) => state.active.all)
 }
 
 export function usePluginEditorThemes(): PluginEditorThemeCatalog {

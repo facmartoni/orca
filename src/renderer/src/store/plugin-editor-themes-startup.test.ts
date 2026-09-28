@@ -40,12 +40,20 @@ function installBridge() {
     return request.promise
   })
   const listeners: ((event?: PluginChangeEvent) => void)[] = []
+  const unsubscribers: ReturnType<typeof vi.fn>[] = []
   const onChanged = vi.fn((listener: (event?: PluginChangeEvent) => void) => {
     listeners.push(listener)
-    return () => {}
+    const unsubscribe = vi.fn(() => {
+      const index = listeners.indexOf(listener)
+      if (index >= 0) {
+        listeners.splice(index, 1)
+      }
+    })
+    unsubscribers.push(unsubscribe)
+    return unsubscribe
   })
   vi.stubGlobal('api', { plugins: { listEditorThemes, onChanged } })
-  return { requests, listEditorThemes, listeners, onChanged }
+  return { requests, listEditorThemes, listeners, onChanged, unsubscribers }
 }
 
 beforeEach(async () => {
@@ -204,5 +212,23 @@ describe('plugin editor theme startup ownership', () => {
     expect(recovered.pending.registrations).toEqual([available])
     expect(recovered.active).toBe(initialActive)
     expect(consumer.result.current).toBe(initialActive)
+  })
+})
+
+describe('plugin editor theme store HMR cleanup', () => {
+  it('releases the retained change bridge and lets the replacement subscribe once', () => {
+    const bridge = installBridge()
+    editorThemes.ensurePluginEditorThemesLoaded()
+    expect(bridge.onChanged).toHaveBeenCalledOnce()
+    expect(bridge.listeners).toHaveLength(1)
+
+    editorThemes.disposePluginEditorThemeChangeSubscription()
+
+    expect(bridge.unsubscribers[0]).toHaveBeenCalledOnce()
+    expect(bridge.listeners).toHaveLength(0)
+
+    editorThemes.ensurePluginEditorThemesLoaded()
+    expect(bridge.onChanged).toHaveBeenCalledTimes(2)
+    expect(bridge.listeners).toHaveLength(1)
   })
 })

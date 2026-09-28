@@ -1,7 +1,9 @@
 import type React from 'react'
+import { useMemo } from 'react'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import { useAppStore } from '../../store'
 import { Separator } from '../ui/separator'
+import { usePluginEditorThemeOptions } from '@/store/plugin-editor-themes'
 import { CliSection } from './CliSection'
 import { GeneralEditorSettingsSection } from './GeneralEditorSettingsSection'
 import { GeneralSupportSection } from './GeneralSupportSection'
@@ -101,6 +103,7 @@ export function GeneralPane({
   wslCapabilitiesLoading
 }: GeneralPaneProps): React.JSX.Element {
   const searchQuery = useAppStore((s) => s.settingsSearchQuery)
+  const pluginEditorThemes = usePluginEditorThemeOptions()
   const sourceDefaultsSupportedRuntimeEnvironmentId = useAppStore(
     (s) => s.worktreeVisibilitySourceDefaultsSupportedRuntimeEnvironmentId
   )
@@ -116,6 +119,10 @@ export function GeneralPane({
     (activeRuntimeTarget.kind === 'local' ||
       activeRuntimeTarget.environmentId === sourceDefaultsSupportedRuntimeEnvironmentId)
   const generalNavigationSearchEntries = getGeneralNavigationSearchEntries()
+  const generalEditorSearchEntries = useMemo(
+    () => getGeneralEditorSearchEntries(pluginEditorThemes),
+    [pluginEditorThemes]
+  )
   const tabOrderKeywords = getTabOrderControlSearchKeywords(generalNavigationSearchEntries)
   const projectRuntimeSearchEntries = wslSupportedPlatform
     ? getGeneralProjectRuntimeSearchEntries()
@@ -253,7 +260,7 @@ export function GeneralPane({
         />
       </section>
     ) : null,
-    matchesSettingsSearch(searchQuery, getGeneralEditorSearchEntries()) ? (
+    matchesSettingsSearch(searchQuery, generalEditorSearchEntries) ? (
       <GeneralEditorSettingsSection
         key="editor"
         settings={settings}
