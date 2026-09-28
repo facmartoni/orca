@@ -64,6 +64,48 @@ async function writePluginSource(
   }
 }
 
+async function writeThemePluginSource(
+  root: string,
+  options: { version: string; themeRaw?: string }
+): Promise<void> {
+  await mkdir(join(root, 'themes'), { recursive: true })
+  await Promise.all([
+    writeFile(
+      join(root, 'orca-plugin.json'),
+      JSON.stringify({
+        manifestVersion: 1,
+        id: 'theme-update',
+        publisher: 'orca-samples',
+        name: 'Theme Update',
+        version: options.version,
+        engines: { orca: '>=1.0.0' },
+        pluginApi: 1,
+        contributes: {
+          editorThemes: [
+            {
+              id: 'robbydev',
+              label: 'RobbyDev',
+              mode: 'dark',
+              path: 'themes/theme.json'
+            }
+          ]
+        },
+        capabilities: []
+      })
+    ),
+    writeFile(
+      join(root, 'themes', 'theme.json'),
+      options.themeRaw ??
+        JSON.stringify({
+          base: 'vs-dark',
+          inherit: true,
+          rules: [{ token: 'comment', foreground: '8a9aa8' }],
+          colors: { 'editor.background': '#0a0614' }
+        })
+    )
+  ])
+}
+
 afterEach(async () => {
   vi.restoreAllMocks()
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
@@ -349,6 +391,46 @@ describe('installPluginFromLocalPath', () => {
     })
 
     expect(result).toMatchObject({ ok: false })
+  })
+
+  it('does not publish current or lockfile when an editor theme update is invalid', async () => {
+    const sourcePath = await tempRoot('orca-plugin-theme-source-')
+    const pluginsDir = await tempRoot('orca-plugin-installs-')
+    await writeThemePluginSource(sourcePath, { version: '1.0.0' })
+
+    const first = await installPluginFromLocalPath({
+      pluginsDir,
+      sourcePath,
+      hostVersion: '1.4.0'
+    })
+    expect(first.ok).toBe(true)
+    if (!first.ok) {
+      throw new Error(first.error)
+    }
+
+    const pluginDir = join(pluginsDir, first.pluginKey)
+    const previousPointer = await readPluginCurrentPointer(pluginDir)
+    const previousLockfile = await readPluginLockfile(pluginsDir)
+    expect(previousPointer).toBe(first.contentHash)
+
+    await writeThemePluginSource(sourcePath, {
+      version: '1.1.0',
+      themeRaw: '{"base":'
+    })
+    const update = await installPluginFromLocalPath({
+      pluginsDir,
+      sourcePath,
+      hostVersion: '1.4.0'
+    })
+    const currentPointer = await readPluginCurrentPointer(pluginDir)
+    const currentLockfile = await readPluginLockfile(pluginsDir)
+
+    expect.soft(update).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/editor theme/i)
+    })
+    expect.soft(currentPointer).toBe(previousPointer)
+    expect.soft(currentLockfile).toEqual(previousLockfile)
   })
 
   it('rejects an oversized manifest without reading an unbounded JSON payload', async () => {

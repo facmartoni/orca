@@ -42,6 +42,95 @@ function manifest(overrides: ManifestOverrides = {}): PluginManifest {
   })
 }
 
+const validEditorTheme = {
+  base: 'vs-dark',
+  inherit: true,
+  rules: [{ token: 'comment', foreground: '8a9aa8', fontStyle: 'italic' }],
+  colors: {
+    'editor.background': '#0a0614',
+    'editor.foreground': '#f0e7f3'
+  }
+}
+
+function editorThemeManifest(themePath = 'themes/theme.json'): PluginManifest {
+  const pluginManifest = manifest({
+    contributes: {
+      editorThemes: [
+        {
+          id: 'robbydev',
+          label: 'RobbyDev',
+          mode: 'dark',
+          path: 'themes/theme.json'
+        }
+      ]
+    }
+  })
+  return {
+    ...pluginManifest,
+    contributes: {
+      ...pluginManifest.contributes,
+      editorThemes: [
+        {
+          ...pluginManifest.contributes.editorThemes[0]!,
+          path: themePath
+        }
+      ]
+    }
+  }
+}
+
+type UnsafeThemeFixture = {
+  root: string
+  themePath: string
+}
+
+const unsafeThemeFixtures = [
+  {
+    name: 'absolute path',
+    setup: async (): Promise<UnsafeThemeFixture> => {
+      const container = await tempRoot()
+      const root = join(container, 'plugin')
+      const themePath = join(container, 'theme.json')
+      await mkdir(root)
+      await writeFile(themePath, JSON.stringify(validEditorTheme))
+      return { root, themePath }
+    }
+  },
+  {
+    name: 'traversal',
+    setup: async (): Promise<UnsafeThemeFixture> => {
+      const container = await tempRoot()
+      const root = join(container, 'plugin')
+      await mkdir(root)
+      await writeFile(join(container, 'theme.json'), JSON.stringify(validEditorTheme))
+      return { root, themePath: '../theme.json' }
+    }
+  },
+  {
+    name: 'directory',
+    setup: async (): Promise<UnsafeThemeFixture> => {
+      const root = await tempRoot()
+      await mkdir(join(root, 'themes'))
+      return { root, themePath: 'themes' }
+    }
+  },
+  {
+    name: 'symlink escape',
+    setup: async (): Promise<UnsafeThemeFixture> => {
+      const container = await tempRoot()
+      const root = join(container, 'plugin')
+      const outside = join(container, 'outside')
+      await Promise.all([mkdir(root), mkdir(outside)])
+      await writeFile(join(outside, 'theme.json'), JSON.stringify(validEditorTheme))
+      await symlink(outside, join(root, 'themes'), process.platform === 'win32' ? 'junction' : 'dir')
+      return { root, themePath: 'themes/theme.json' }
+    }
+  }
+] satisfies ReadonlyArray<{
+  name: string
+  setup: () => Promise<UnsafeThemeFixture>
+}>
+
 afterEach(async () => {
   vi.restoreAllMocks()
   // Why: PluginService may still be releasing in-process Parcel watches; drop
@@ -203,6 +292,44 @@ describe('declared plugin artifacts', () => {
     await expect(validatePluginInstallContent(root, pluginManifest)).resolves.toMatchObject({
       ok: false,
       error: expect.stringContaining('duplicate VM recipe id "cloud"')
+    })
+  })
+  it.each(unsafeThemeFixtures)('rejects editor theme $name', async ({ setup }) => {
+    const { root, themePath } = await setup()
+    const pluginManifest = editorThemeManifest(themePath)
+
+    await expect(validateDeclaredPluginArtifacts(root, pluginManifest)).resolves.toMatchObject({
+      ok: false
+    })
+  })
+
+  it('rejects an editor theme artifact larger than 256 KiB', async () => {
+    const root = await tempRoot()
+    await mkdir(join(root, 'themes'))
+    const themePath = join(root, 'themes', 'theme.json')
+    await writeFile(themePath, '')
+    await truncate(themePath, 256 * 1024 + 1)
+
+    await expect(
+      validateDeclaredPluginArtifacts(root, editorThemeManifest())
+    ).resolves.toMatchObject({
+      ok: false,
+      error: expect.stringContaining('artifact limit')
+    })
+  })
+
+  it('parses editor themes only at the immutable install boundary', async () => {
+    const root = await tempRoot()
+    await mkdir(join(root, 'themes'))
+    await writeFile(join(root, 'themes', 'theme.json'), '{"base":')
+    const pluginManifest = editorThemeManifest()
+
+    await expect(validateDeclaredPluginArtifacts(root, pluginManifest)).resolves.toEqual({
+      ok: true
+    })
+    await expect(validatePluginInstallContent(root, pluginManifest)).resolves.toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/editor theme/i)
     })
   })
 })

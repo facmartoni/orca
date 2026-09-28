@@ -7,6 +7,7 @@ import {
 import { PluginLanguagePackRegistry } from './plugin-language-pack-registry'
 import { PluginVmRecipeRegistry } from './plugin-vm-recipe-registry'
 import { PluginCommandRegistry } from './plugin-command-registry'
+import { PluginEditorThemeRegistry } from './plugin-editor-theme-registry'
 import { verifyInstructionalPluginContent } from './plugin-instructional-content-integrity'
 import type { KeybindingOverrides } from '../../shared/keybindings'
 
@@ -14,17 +15,19 @@ export class PluginContentPackRegistry {
   readonly languagePacks: PluginLanguagePackRegistry
   readonly vmRecipes: PluginVmRecipeRegistry
   readonly commands: PluginCommandRegistry
+  readonly editorThemes: PluginEditorThemeRegistry
   private readonly activationErrors = new Map<string, string>()
 
   constructor(
     contentVerifier: PluginContentVerifier,
-    /** Revocation chokepoint: no caller-supplied predicate can readmit a
-     *  killed plugin's language packs, VM recipes, or commands. */
+    /** Revocation chokepoint: no caller-supplied predicate can readmit
+     * killed plugin language packs, VM recipes, commands, or editor themes. */
     private readonly isKilled: (pluginKey: string) => boolean
   ) {
     this.languagePacks = new PluginLanguagePackRegistry(contentVerifier)
     this.vmRecipes = new PluginVmRecipeRegistry()
     this.commands = new PluginCommandRegistry()
+    this.editorThemes = new PluginEditorThemeRegistry(contentVerifier)
   }
 
   async reconcile(
@@ -32,9 +35,11 @@ export class PluginContentPackRegistry {
     isApproved: (plugin: ValidDiscoveredPlugin) => boolean,
     keybindings: KeybindingOverrides = {}
   ): Promise<void> {
+    const validDiscovered = discovered.filter(
+      (plugin): plugin is ValidDiscoveredPlugin => !isInvalidDiscoveredPlugin(plugin)
+    )
     const approvedKeys = new Set(
-      discovered
-        .filter((plugin): plugin is ValidDiscoveredPlugin => !isInvalidDiscoveredPlugin(plugin))
+      validDiscovered
         .filter((plugin) => isApproved(plugin) && !this.isKilled(plugin.pluginKey))
         .map((plugin) => plugin.pluginKey)
     )
@@ -73,7 +78,8 @@ export class PluginContentPackRegistry {
       const languagePacks = this.languagePacks.reconcile(discovered, approveAtomically)
       const vmRecipes = this.vmRecipes.reconcile(discovered, approveAtomically)
       this.commands.reconcile(discovered, approveAtomically, keybindings)
-      await Promise.all([languagePacks, vmRecipes])
+      const editorThemes = this.editorThemes.reconcile(validDiscovered, approveAtomically)
+      await Promise.all([languagePacks, vmRecipes, editorThemes])
 
       let foundNewError = false
       for (const pluginKey of approvedKeys) {
@@ -98,7 +104,8 @@ export class PluginContentPackRegistry {
     return (
       this.languagePacks.error(pluginKey) ??
       this.vmRecipes.error(pluginKey) ??
-      this.commands.error(pluginKey)
+      this.commands.error(pluginKey) ??
+      this.editorThemes.error(pluginKey)
     )
   }
 }

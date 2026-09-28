@@ -1,5 +1,10 @@
 import { z } from 'zod'
-import type { PluginEditorThemeMode } from './plugin-content-pack-contributions'
+import {
+  PLUGIN_EDITOR_THEME_MODES,
+  type PluginEditorThemeMode
+} from './plugin-content-pack-contributions'
+import { isSafePluginId } from './plugin-manifest-fields'
+import { isQualifiedPluginKey } from './plugin-tab-key'
 
 export type PluginEditorThemeData = {
   base: 'vs' | 'vs-dark' | 'hc-black' | 'hc-light'
@@ -18,6 +23,16 @@ export type PluginEditorThemeArtifactResult =
   | { ok: false; error: string }
 
 export type PluginEditorThemeId = `${string}.${string}/${string}`
+
+export type PluginEditorThemeRegistration = {
+  id: PluginEditorThemeId
+  monacoName: string
+  pluginKey: string
+  localId: string
+  label: string
+  mode: PluginEditorThemeMode
+  data: PluginEditorThemeData
+}
 
 const TOKEN_RULE_LIMIT = 4_096
 const EDITOR_COLOR_LIMIT = 2_048
@@ -128,6 +143,45 @@ const BASE_BY_MODE = {
   'hc-light': 'hc-light'
 } as const satisfies Record<PluginEditorThemeMode, PluginEditorThemeData['base']>
 
+
+export function isPluginEditorThemeRegistration(
+  value: unknown
+): value is PluginEditorThemeRegistration {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false
+  }
+  const registration = value as Record<string, unknown>
+  if (
+    typeof registration.id !== 'string' ||
+    typeof registration.monacoName !== 'string' ||
+    typeof registration.pluginKey !== 'string' ||
+    !isQualifiedPluginKey(registration.pluginKey) ||
+    typeof registration.localId !== 'string' ||
+    !isSafePluginId(registration.localId) ||
+    typeof registration.label !== 'string' ||
+    registration.label.length === 0 ||
+    registration.label.length > 256 ||
+    registration.label.trim() !== registration.label ||
+    typeof registration.mode !== 'string' ||
+    !PLUGIN_EDITOR_THEME_MODES.includes(registration.mode as PluginEditorThemeMode)
+  ) {
+    return false
+  }
+
+  const id = `${registration.pluginKey}/${registration.localId}` as PluginEditorThemeId
+  if (
+    registration.id !== id ||
+    registration.monacoName !== pluginEditorThemeMonacoName(id) ||
+    dangerousOwnEditorColorKey(registration.data) !== undefined
+  ) {
+    return false
+  }
+  const data = pluginEditorThemeArtifactSchema.safeParse(registration.data)
+  return (
+    data.success &&
+    data.data.base === BASE_BY_MODE[registration.mode as PluginEditorThemeMode]
+  )
+}
 export function parsePluginEditorThemeArtifact(
   raw: string,
   mode: PluginEditorThemeMode
