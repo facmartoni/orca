@@ -104,6 +104,9 @@ function keywordParts(section: SettingsNavSection): string[] {
   const baseId = section.id.startsWith('repo-') ? 'repo' : section.id
   const idWords = baseId.replace(/-/g, ' ')
   const paneLevelEntries = section.searchEntries.filter((entry) => !entry.targetSectionId)
+  const paneLevelKeywords = paneLevelEntries.flatMap(
+    (entry) => entry.cmdJKeywords ?? entry.keywords ?? []
+  )
   const localized = settingsWord()
   // Why keep the English forms alongside the localized ones: section titles stay English in
   // some catalogs, and a user on a localized build still types `terminal settings` freely.
@@ -118,7 +121,8 @@ function keywordParts(section: SettingsNavSection): string[] {
     section.title,
     ...suffixed,
     ...(SETTINGS_ALIASES[baseId] ?? []),
-    ...paneLevelEntries.map((entry) => entry.title)
+    ...paneLevelEntries.map((entry) => entry.title),
+    ...paneLevelKeywords
   ]
 }
 

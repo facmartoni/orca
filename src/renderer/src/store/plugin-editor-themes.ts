@@ -18,11 +18,14 @@ export type PendingPluginEditorThemes = {
   registrations: readonly PluginEditorThemeRegistration[]
 }
 
+export type PluginEditorThemeRuntimeStatus = 'idle' | 'loading' | 'ready' | 'failed'
+
 type PluginEditorThemeState = {
   pending: PendingPluginEditorThemes
   active: PluginEditorThemeCatalog
   loading: boolean
   error: string | null
+  runtimeStatus: PluginEditorThemeRuntimeStatus
   commitActivePluginEditorThemes: (
     generation: number,
     catalog: PluginEditorThemeCatalog
@@ -52,6 +55,7 @@ export const usePluginEditorThemeStore = create<PluginEditorThemeState>()((set) 
   active: EMPTY_PLUGIN_EDITOR_THEME_CATALOG,
   loading: false,
   error: null,
+  runtimeStatus: 'idle',
   commitActivePluginEditorThemes: (generation, catalog) =>
     set((state) =>
       !state.loading &&
@@ -96,6 +100,21 @@ export function createPluginEditorThemeCatalog(
   }
 
   return { byId, all, dark, light, hcDark, hcLight, revision }
+}
+
+export function markPluginEditorThemeRuntimeLoading(): void {
+  usePluginEditorThemeStore.setState({ runtimeStatus: 'loading' })
+}
+
+export function markPluginEditorThemeRuntimeReady(): void {
+  usePluginEditorThemeStore.setState({ runtimeStatus: 'ready' })
+}
+
+export function markPluginEditorThemeRuntimeFailed(): void {
+  usePluginEditorThemeStore.setState({
+    runtimeStatus: 'failed',
+    active: EMPTY_PLUGIN_EDITOR_THEME_CATALOG
+  })
 }
 
 export async function refreshPluginEditorThemes(): Promise<void> {

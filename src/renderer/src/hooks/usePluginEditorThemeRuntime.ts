@@ -1,4 +1,8 @@
 import { useEffect } from 'react'
+import {
+  markPluginEditorThemeRuntimeFailed,
+  markPluginEditorThemeRuntimeLoading
+} from '@/store/plugin-editor-themes'
 
 type PluginEditorThemeRuntimeLoader = () => Promise<unknown>
 
@@ -19,23 +23,26 @@ export async function loadPluginEditorThemeRuntimeWithRetry(
   throw lastError
 }
 
-let runtimeLoad: Promise<unknown> | undefined
+let runtimeLoad: Promise<void> | undefined
 
-function ensurePluginEditorThemeRuntime(): void {
+export function ensurePluginEditorThemeRuntimeLoaded(
+  loadRuntime: PluginEditorThemeRuntimeLoader = () => import('@/lib/monaco-setup')
+): Promise<void> {
   if (runtimeLoad) {
-    return
+    return runtimeLoad
   }
+  markPluginEditorThemeRuntimeLoading()
   // Monaco is a heavy renderer bundle; Settings loads it only when its UI mounts.
-  runtimeLoad = loadPluginEditorThemeRuntimeWithRetry(() => import('@/lib/monaco-setup')).catch(
-    (error: unknown) => {
-      runtimeLoad = undefined
-      console.error('[Plugin Editor Themes] Failed to initialize Monaco runtime', error)
-    }
-  )
+  runtimeLoad = loadPluginEditorThemeRuntimeWithRetry(loadRuntime).catch((error: unknown) => {
+    runtimeLoad = undefined
+    markPluginEditorThemeRuntimeFailed()
+    console.error('[Plugin Editor Themes] Failed to initialize Monaco runtime', error)
+  })
+  return runtimeLoad
 }
 
 export function usePluginEditorThemeRuntime(): void {
   useEffect(() => {
-    ensurePluginEditorThemeRuntime()
+    void ensurePluginEditorThemeRuntimeLoaded()
   }, [])
 }

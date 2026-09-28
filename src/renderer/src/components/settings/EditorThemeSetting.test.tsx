@@ -15,8 +15,10 @@ import type { PluginEditorThemeRegistration } from '../../../../shared/plugins/p
 import { DARK_EDITOR_THEMES, LIGHT_EDITOR_THEMES } from '@/lib/monaco-themes'
 import {
   createPluginEditorThemeCatalog,
+  markPluginEditorThemeRuntimeFailed,
   usePluginEditorThemeStore
 } from '@/store/plugin-editor-themes'
+import type { PluginEditorThemeRuntimeStatus } from '@/store/plugin-editor-themes'
 import type * as EditorThemeSearchMetadataModule from './editor-theme-search-metadata'
 
 const searchState = vi.hoisted(() => ({ query: '' }))
@@ -171,14 +173,16 @@ function publishThemeOptions(
   pendingGeneration: number,
   active: readonly PluginEditorThemeRegistration[],
   activeRevision: number,
-  loading = false
+  loading = false,
+  runtimeStatus: PluginEditorThemeRuntimeStatus = 'ready'
 ): void {
   act(() => {
     usePluginEditorThemeStore.setState({
       pending: { generation: pendingGeneration, registrations: pending },
       active: createPluginEditorThemeCatalog(active, activeRevision),
       loading,
-      error: null
+      error: null,
+      runtimeStatus
     })
   })
 }
@@ -403,6 +407,26 @@ describe('plugin editor themes in Settings', () => {
     expect(unavailable?.disabled).toBe(true)
     expect(unavailable?.textContent).toContain('Unavailable')
     expect(unavailable?.textContent).toContain(missingId)
+  })
+
+  it('leaves loading for fallback when the lazy runtime reaches terminal failure', () => {
+    const registration = pluginTheme('failed-runtime', 'dark', 'Failed Runtime')
+    publishThemeOptions([registration], 12, [registration], 11, true, 'loading')
+    act(() => markPluginEditorThemeRuntimeFailed())
+
+    expect(usePluginEditorThemeStore.getState().active.all).toEqual([])
+    const { container } = renderSetting({ editorThemeDark: registration.id })
+    const darkSelect = container.querySelectorAll('[data-slot="select"]')[0]!
+    const unavailable = darkSelect.querySelector<HTMLButtonElement>(
+      `button[data-value="${registration.id}"]`
+    )
+
+    expect(container.textContent).not.toMatch(/loading/i)
+    expect(unavailable?.disabled).toBe(true)
+    expect(
+      darkSelect.querySelector(`button[data-value="${registration.id}"]:not(:disabled)`)
+    ).toBeNull()
+    expect(darkSelect.textContent).toContain(`Unavailable — ${registration.id}`)
   })
 
   it('marks a selected theme unavailable when it belongs to the opposite family', () => {

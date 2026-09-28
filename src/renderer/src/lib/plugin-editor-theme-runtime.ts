@@ -1,6 +1,7 @@
 import {
   commitActivePluginEditorThemes,
   ensurePluginEditorThemesLoaded,
+  markPluginEditorThemeRuntimeReady,
   usePluginEditorThemeStore
 } from '@/store/plugin-editor-themes'
 import type {
@@ -12,6 +13,7 @@ import type { MonacoThemeRegistry } from './monaco-themes'
 export function initializePluginEditorThemeRuntime(
   monacoInstance: MonacoThemeRegistry
 ): () => void {
+  markPluginEditorThemeRuntimeReady()
   let disposed = false
   let processing = false
   let queued: PendingPluginEditorThemes | undefined

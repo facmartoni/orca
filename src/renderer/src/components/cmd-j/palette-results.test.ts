@@ -657,3 +657,36 @@ describe('Cmd+J project and repo-group search', () => {
     })
   })
 })
+
+describe('dynamic General theme metadata', () => {
+  const pluginId = 'tests.cmdj-theme/oceanic'
+  const pluginKey = 'tests.cmdj-theme'
+  const dynamicSections: SettingsNavSection[] = [
+    {
+      id: 'general',
+      title: 'General',
+      description: 'Workspace defaults.',
+      icon: Settings,
+      searchEntries: [
+        {
+          title: 'Editor Theme (Dark Mode)',
+          keywords: ['Dracula', 'Oceanic Syntax', pluginId, pluginKey]
+        }
+      ],
+      group: 'setup'
+    }
+  ]
+
+  it.each(['Dracula', 'Oceanic Syntax', pluginId, pluginKey])(
+    'finds General through non-targeted editor theme keyword %s',
+    (query) => {
+      const results = rankCmdJMiddleResults({
+        query,
+        settingsResults: buildCmdJSettingsResults(dynamicSections),
+        actionResults: []
+      })
+
+      expect(results[0]?.id).toBe('settings:general')
+    }
+  )
+})

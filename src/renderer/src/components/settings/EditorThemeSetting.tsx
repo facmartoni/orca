@@ -86,9 +86,10 @@ export function EditorThemeSetting({
   const pluginThemes = usePluginEditorThemeOptions()
   const themesSettled = usePluginEditorThemeStore(
     (state) =>
-      state.pending.generation > 0 &&
-      !state.loading &&
-      state.active.revision === state.pending.generation
+      state.runtimeStatus === 'failed' ||
+      (state.pending.generation > 0 &&
+        !state.loading &&
+        state.active.revision === state.pending.generation)
   )
   const darkPluginThemes = useMemo(
     () => pluginThemes.filter((theme) => matchesEditorThemeFamily(theme.mode, 'dark')),
