@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 
 type EditorThemeMode = 'dark' | 'light' | 'hc-dark' | 'hc-light'
+type EditorThemeArtifactResult =
+  | { ok: true; data: unknown }
+  | { ok: false; error: string }
 type EditorThemeArtifactApi = {
-  parsePluginEditorThemeArtifact(raw: string, mode: EditorThemeMode): unknown
+  parsePluginEditorThemeArtifact(
+    raw: string,
+    mode: EditorThemeMode
+  ): EditorThemeArtifactResult
 }
 
 const artifactModulePath = './plugin-editor-theme-artifact'
@@ -22,7 +28,7 @@ const validTheme = {
 async function parsePluginEditorThemeArtifact(
   raw: string,
   mode: EditorThemeMode
-): Promise<unknown> {
+): Promise<EditorThemeArtifactResult> {
   const artifactApi = await vi.importActual<EditorThemeArtifactApi>(artifactModulePath)
   return artifactApi.parsePluginEditorThemeArtifact(raw, mode)
 }
@@ -51,6 +57,15 @@ describe('plugin editor theme artifacts', () => {
     expect(await parsePluginEditorThemeArtifact(JSON.stringify(validTheme), 'dark')).toEqual({
       ok: true,
       data: validTheme
+    })
+  })
+
+  it('accepts inherit false when the base matches the mode', async () => {
+    const theme = { ...validTheme, inherit: false }
+
+    expect(await parsePluginEditorThemeArtifact(JSON.stringify(theme), 'dark')).toEqual({
+      ok: true,
+      data: theme
     })
   })
 
@@ -86,7 +101,6 @@ describe('plugin editor theme artifacts', () => {
 
   it.each([
     ['malformed JSON', '{'],
-    ['inherit false', themeRaw({ inherit: false })],
     ['unknown root key', themeRaw({ script: 'x' })]
   ] as const)('rejects %s', async (_name, raw) => {
     expect(await parsePluginEditorThemeArtifact(raw, 'dark')).toMatchObject(rejectedArtifact)
@@ -175,10 +189,38 @@ describe('plugin editor theme artifacts', () => {
     [
       'control character in an editor color key',
       themeRaw({ colors: { ['editor.\u0000background']: '#0a0614' } })
-    ]
+    ],
+    ['DEL in a token name', themeRaw({ rules: [{ token: 'x\u007fy' }] })],
+    [
+      'DEL in an editor color key',
+      themeRaw({ colors: { ['editor.\u007fbackground']: '#0a0614' } })
+    ],
+    ['C1 control in a token name', themeRaw({ rules: [{ token: 'x\u0085y' }] })],
+    [
+      'C1 control in an editor color key',
+      themeRaw({ colors: { ['editor.\u0085background']: '#0a0614' } })
+    ],
   ] as const)('rejects %s', async (_name, raw) => {
     expect(await parsePluginEditorThemeArtifact(raw, 'dark')).toMatchObject(rejectedArtifact)
   })
+
+  it.each([
+    ['C0', '\u0000', '"editor.\\u0000background"'],
+    ['DEL', '\u007f', '"editor.\\u007fbackground"'],
+    ['C1', '\u0085', '"editor.\\u0085background"']
+  ] as const)(
+    'escapes %s control characters in error paths',
+    async (_name, control, escapedKey) => {
+      const key = `editor.${control}background`
+      const colors = Object.fromEntries([[key, '#0a0614']])
+      const result = await parsePluginEditorThemeArtifact(themeRaw({ colors }), 'dark')
+
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.error).toContain(escapedKey)
+      expect(result.error).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/)
+    }
+  )
 
   it.each(['__proto__', 'prototype', 'constructor'])('rejects editor color key %j', async (key) => {
     const colors = Object.fromEntries([[key, '#0a0614']])

@@ -208,6 +208,38 @@ describe('PluginMarketplaceBrowser', () => {
     act(() => root.unmount())
   })
 
+  it.each([
+    [1, '1 editor theme'],
+    [2, '2 editor themes']
+  ] as const)('summarizes %i editor theme contributions', async (count, label) => {
+    const themedPreview: PluginMarketplaceHostInstallPreview = {
+      ...preview,
+      manifest: {
+        ...preview.manifest,
+        main: undefined,
+        contributes: {
+          ...preview.manifest.contributes,
+          editorThemes: Array.from({ length: count }, (_, index) => ({
+            id: `theme-${index}`,
+            label: `Theme ${index}`,
+            mode: 'dark',
+            path: `themes/theme-${index}.json`
+          }))
+        }
+      }
+    }
+    installApi({
+      previewMarketplacePlugin: vi.fn().mockResolvedValue(themedPreview)
+    })
+    const { root } = await renderBrowser()
+
+    await act(async () => button('Install').click())
+
+    expect(document.body.textContent).toContain(label)
+    expect(document.body.textContent).not.toContain('Manifest metadata only')
+    act(() => root.unmount())
+  })
+
   it('disables a listing revoked by the safety list', async () => {
     installApi({
       listMarketplacePlugins: vi

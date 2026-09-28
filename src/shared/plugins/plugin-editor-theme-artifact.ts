@@ -3,7 +3,7 @@ import type { PluginEditorThemeMode } from './plugin-content-pack-contributions'
 
 export type PluginEditorThemeData = {
   base: 'vs' | 'vs-dark' | 'hc-black' | 'hc-light'
-  inherit: true
+  inherit: boolean
   rules: Array<{
     token: string
     foreground?: string
@@ -28,11 +28,25 @@ const DANGEROUS_KEYS = {
   prototype: true,
   constructor: true
 } as const satisfies Record<string, true>
-const CONTROL_CHARACTER_RE = /[\u0000-\u001f]/
+const CONTROL_CHARACTER_RE = /[\u0000-\u001f\u007f-\u009f]/
 const TOKEN_COLOR_RE = /^[0-9a-f]{6}(?:[0-9a-f]{2})?$/i
 const EDITOR_COLOR_RE = /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i
 const FONT_STYLE_RE =
   /^(?:(?:italic|bold|underline|strikethrough)(?: (?:italic|bold|underline|strikethrough))*)?$/
+
+function formatErrorPath(path: readonly PropertyKey[]): string {
+  return path
+    .map((segment) => {
+      const value = typeof segment === 'symbol' ? String(segment) : segment
+      const serialized = JSON.stringify(value)
+      if (serialized === undefined) return '""'
+      return serialized.replace(
+        /[\u007f-\u009f]/g,
+        (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`
+      )
+    })
+    .join('.')
+}
 
 const tokenNameSchema = z
   .string()
@@ -70,7 +84,7 @@ const editorColorSchema = z
 const pluginEditorThemeArtifactSchema = z
   .object({
     base: z.enum(['vs', 'vs-dark', 'hc-black', 'hc-light']),
-    inherit: z.literal(true),
+    inherit: z.boolean(),
     rules: z.array(tokenRuleSchema).max(TOKEN_RULE_LIMIT),
     colors: z
       .record(editorColorKeySchema, editorColorSchema)
@@ -119,14 +133,14 @@ export function parsePluginEditorThemeArtifact(
   if (dangerousColorKey !== undefined) {
     return {
       ok: false,
-      error: `invalid editor theme artifact at colors.${dangerousColorKey}: must not be a prototype key`
+      error: `invalid editor theme artifact at ${formatErrorPath(['colors', dangerousColorKey])}: must not be a prototype key`
     }
   }
 
   const parsed = pluginEditorThemeArtifactSchema.safeParse(source)
   if (!parsed.success) {
     const issue = parsed.error.issues[0]
-    const location = issue?.path.length ? ` at ${issue.path.join('.')}` : ''
+    const location = issue?.path.length ? ` at ${formatErrorPath(issue.path)}` : ''
     return {
       ok: false,
       error: `invalid editor theme artifact${location}: ${issue?.message ?? 'unknown error'}`
