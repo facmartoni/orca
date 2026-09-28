@@ -5,6 +5,7 @@ import type {
 } from '../../shared/plugins/plugin-panel-bridge'
 import type { PluginConsentRequest } from '../../shared/plugins/plugin-consent-request'
 import type { PluginChangeEvent } from '../../shared/plugins/plugin-change-event'
+import type { PluginEditorThemeRegistration } from '../../shared/plugins/plugin-editor-theme-artifact'
 import type {
   PluginHostInstallResult,
   PluginHostInstallSource,
@@ -16,6 +17,8 @@ import type {
 export const pluginsApi = {
   list: (): Promise<PluginHostListEntry[]> => ipcRenderer.invoke('plugins:list'),
   listLanguagePacks: () => ipcRenderer.invoke('plugins:listLanguagePacks'),
+  listEditorThemes: (): Promise<PluginEditorThemeRegistration[]> =>
+    ipcRenderer.invoke('plugins:listEditorThemes'),
   consent: (args: PluginConsentRequest): Promise<PluginHostListEntry[]> =>
     ipcRenderer.invoke('plugins:consent', args),
   setEnabled: (args: { pluginKey: string; enabled: boolean }): Promise<PluginHostListEntry[]> =>

@@ -157,3 +157,35 @@ describe('plugin settings lifecycle authority', () => {
     expect(service.refresh).toHaveBeenCalledOnce()
   })
 })
+
+
+describe('plugin editor theme IPC readiness', () => {
+  it('waits for plugin reconciliation before reading editor themes', async () => {
+    const ready = Promise.withResolvers<void>()
+    const whenReady = vi.fn(() => ready.promise)
+    const list = vi.fn(() => [])
+    const store = {
+      onSettingsChanged: vi.fn(() => vi.fn())
+    } as unknown as Store
+    const service = {
+      setRuntimeDelegate: vi.fn(),
+      refresh: vi.fn().mockResolvedValue(undefined),
+      whenReady,
+      contentPacks: { editorThemes: { list } }
+    } as unknown as PluginService
+    registerPluginHandlers(store, service, null)
+    const registration = electronMocks.handle.mock.calls.find(
+      ([channel]) => channel === 'plugins:listEditorThemes'
+    )
+    const listEditorThemes = registration?.[1] as (() => Promise<unknown>) | undefined
+
+    expect(listEditorThemes).toBeTypeOf('function')
+    const response = listEditorThemes!()
+    expect(whenReady).toHaveBeenCalledOnce()
+    expect(list).not.toHaveBeenCalled()
+
+    ready.resolve()
+    await expect(response).resolves.toEqual([])
+    expect(list).toHaveBeenCalledOnce()
+  })
+})

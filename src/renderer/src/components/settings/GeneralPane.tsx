@@ -1,7 +1,10 @@
 import type React from 'react'
+import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import { useAppStore } from '../../store'
 import { Separator } from '../ui/separator'
+import { usePluginEditorThemeOptions } from '@/store/plugin-editor-themes'
 import { CliSection } from './CliSection'
 import { GeneralEditorSettingsSection } from './GeneralEditorSettingsSection'
 import { GeneralSupportSection } from './GeneralSupportSection'
@@ -100,7 +103,10 @@ export function GeneralPane({
   wslDistros = EMPTY_WSL_DISTROS,
   wslCapabilitiesLoading
 }: GeneralPaneProps): React.JSX.Element {
+  const { i18n } = useTranslation()
+  const activeLocale = i18n.language
   const searchQuery = useAppStore((s) => s.settingsSearchQuery)
+  const pluginEditorThemes = usePluginEditorThemeOptions()
   const sourceDefaultsSupportedRuntimeEnvironmentId = useAppStore(
     (s) => s.worktreeVisibilitySourceDefaultsSupportedRuntimeEnvironmentId
   )
@@ -116,6 +122,11 @@ export function GeneralPane({
     (activeRuntimeTarget.kind === 'local' ||
       activeRuntimeTarget.environmentId === sourceDefaultsSupportedRuntimeEnvironmentId)
   const generalNavigationSearchEntries = getGeneralNavigationSearchEntries()
+  // Search helper reads translations indirectly; capture locale to refresh memoized metadata.
+  const generalEditorSearchEntries = useMemo(() => {
+    void activeLocale
+    return getGeneralEditorSearchEntries(pluginEditorThemes)
+  }, [pluginEditorThemes, activeLocale])
   const tabOrderKeywords = getTabOrderControlSearchKeywords(generalNavigationSearchEntries)
   const projectRuntimeSearchEntries = wslSupportedPlatform
     ? getGeneralProjectRuntimeSearchEntries()
@@ -253,7 +264,7 @@ export function GeneralPane({
         />
       </section>
     ) : null,
-    matchesSettingsSearch(searchQuery, getGeneralEditorSearchEntries()) ? (
+    matchesSettingsSearch(searchQuery, generalEditorSearchEntries) ? (
       <GeneralEditorSettingsSection
         key="editor"
         settings={settings}

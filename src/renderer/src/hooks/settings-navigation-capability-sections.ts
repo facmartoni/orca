@@ -122,7 +122,8 @@ export function buildCapabilitySettingsSections({
 
 export function buildSetupSettingsSections({
   isLocalWindowsHost,
-  isWebClient
+  isWebClient,
+  pluginEditorThemes = []
 }: SettingsNavigationBuildOptions): SettingsNavSection[] {
   const showDesktopOnlySettings = !isWebClient
   return [
@@ -182,7 +183,10 @@ export function buildSetupSettingsSections({
         'Workspace defaults, app setup, and maintenance.'
       ),
       icon: SlidersHorizontal,
-      searchEntries: getGeneralPaneSearchEntries({ includeProjectRuntime: isLocalWindowsHost }),
+      searchEntries: getGeneralPaneSearchEntries({
+        includeProjectRuntime: isLocalWindowsHost,
+        pluginEditorThemes
+      }),
       group: 'setup'
     },
     {

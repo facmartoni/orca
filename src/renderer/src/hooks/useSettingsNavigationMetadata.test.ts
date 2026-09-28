@@ -3,6 +3,11 @@ import { basename, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildSettingsNavigationMetadata } from './useSettingsNavigationMetadata'
 import type { Repo } from '../../../shared/repo-types'
+import {
+  pluginEditorThemeId,
+  pluginEditorThemeMonacoName
+} from '../../../shared/plugins/plugin-editor-theme-artifact'
+import type { PluginEditorThemeRegistration } from '../../../shared/plugins/plugin-editor-theme-artifact'
 
 const repo = {
   id: 'repo-1',
@@ -442,5 +447,42 @@ describe('settings navigation metadata', () => {
     expect(importLines).not.toMatch(/components\/settings\/Settings(?:'|")/)
     expect(importLines).not.toMatch(/components\/settings\/[A-Z][A-Za-z]+Pane(?:'|")/)
     expect(importLines).not.toMatch(/components\/stats\/StatsPane(?:'|")/)
+  })
+})
+
+describe('plugin editor theme Cmd+J metadata', () => {
+  it('indexes built-in names and active plugin label, public ID, and plugin key', () => {
+    const pluginKey = 'tests.cmdj-theme'
+    const localId = 'oceanic'
+    const id = pluginEditorThemeId(pluginKey, localId)
+    const registration: PluginEditorThemeRegistration = {
+      id,
+      monacoName: pluginEditorThemeMonacoName(id),
+      pluginKey,
+      localId,
+      label: 'Oceanic Syntax',
+      mode: 'dark',
+      data: {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [],
+        colors: {
+          'editor.background': '#0a0614',
+          'editor.foreground': '#f0e7f3'
+        }
+      }
+    }
+    const general = buildSettingsNavigationMetadata({
+      isMac: false,
+      isWindows: false,
+      isWebClient: false,
+      pluginEditorThemes: [registration],
+      repos: [repo]
+    }).find((section) => section.id === 'general')
+    const keywords = general?.searchEntries.flatMap((entry) => entry.keywords ?? []) ?? []
+
+    expect(keywords).toEqual(
+      expect.arrayContaining(['Dracula', 'Monokai', registration.label, id, pluginKey])
+    )
   })
 })

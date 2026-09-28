@@ -1,9 +1,11 @@
+import type { PluginEditorThemeRegistration } from '../../../../shared/plugins/plugin-editor-theme-artifact'
 import { translate } from '@/i18n/i18n'
-import { translateSearchKeyword } from './settings-search-keywords'
 import { createLocalizedCatalog } from '@/i18n/localized-catalog'
-
+import { getEditorThemeSearchKeywords } from './editor-theme-search-metadata'
+import type { SettingsSearchEntry } from './settings-search'
+import { translateSearchKeyword } from './settings-search-keywords'
 /** Localized search entries for general editor settings. */
-export const getGeneralEditorSearchEntries = createLocalizedCatalog(() => [
+const getGeneralEditorBaseSearchEntries = createLocalizedCatalog(() => [
   {
     title: translate('auto.components.settings.general.search.ae21e806ce', 'Auto Save Files'),
     description: translate(
@@ -39,12 +41,7 @@ export const getGeneralEditorSearchEntries = createLocalizedCatalog(() => [
       'auto.components.settings.general.search.editorThemeDarkDesc',
       'Theme used by file editors and diff viewers when Orca is in dark mode.'
     ),
-    keywords: [
-      ...translateSearchKeyword('auto.components.settings.general.search.e1ee631696', 'editor'),
-      ...translateSearchKeyword('auto.components.settings.general.search.themeKw', 'theme'),
-      ...translateSearchKeyword('auto.components.settings.general.search.darkKw', 'dark'),
-      ...translateSearchKeyword('auto.components.settings.general.search.monacoKw', 'monaco')
-    ]
+    keywords: getEditorThemeSearchKeywords([], 'dark')
   },
   {
     title: translate(
@@ -55,12 +52,7 @@ export const getGeneralEditorSearchEntries = createLocalizedCatalog(() => [
       'auto.components.settings.general.search.editorThemeLightDesc',
       'Theme used by file editors and diff viewers when Orca is in light mode.'
     ),
-    keywords: [
-      ...translateSearchKeyword('auto.components.settings.general.search.e1ee631696', 'editor'),
-      ...translateSearchKeyword('auto.components.settings.general.search.themeKw', 'theme'),
-      ...translateSearchKeyword('auto.components.settings.general.search.lightKw', 'light'),
-      ...translateSearchKeyword('auto.components.settings.general.search.monacoKw', 'monaco')
-    ]
+    keywords: getEditorThemeSearchKeywords([], 'light')
   },
   {
     title: translate(
@@ -201,3 +193,27 @@ export const getGeneralEditorSearchEntries = createLocalizedCatalog(() => [
     ]
   }
 ])
+
+const DARK_EDITOR_THEME_SEARCH_ENTRY_INDEX = 2
+const LIGHT_EDITOR_THEME_SEARCH_ENTRY_INDEX = 3
+
+export function getGeneralEditorSearchEntries(
+  registrations: readonly PluginEditorThemeRegistration[] = []
+): SettingsSearchEntry[] {
+  const entries = getGeneralEditorBaseSearchEntries()
+  if (registrations.length === 0) {
+    return entries
+  }
+
+  const darkKeywords = getEditorThemeSearchKeywords(registrations, 'dark')
+  const lightKeywords = getEditorThemeSearchKeywords(registrations, 'light')
+  return entries.map((entry, index) => {
+    if (index === DARK_EDITOR_THEME_SEARCH_ENTRY_INDEX) {
+      return { ...entry, keywords: darkKeywords }
+    }
+    if (index === LIGHT_EDITOR_THEME_SEARCH_ENTRY_INDEX) {
+      return { ...entry, keywords: lightKeywords }
+    }
+    return entry
+  })
+}

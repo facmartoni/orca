@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parsePluginManifest, pluginManifestSchema } from './plugin-manifest'
+import { pluginEditorThemeContributionSchema } from './plugin-content-pack-contributions'
 
 function manifest(contributes: Record<string, unknown>): Record<string, unknown> {
   return {
@@ -14,6 +15,14 @@ function manifest(contributes: Record<string, unknown>): Record<string, unknown>
     capabilities: []
   }
 }
+
+const editorThemeContribution = (overrides: Record<string, unknown> = {}) => ({
+  id: 'robbydev',
+  label: 'RobbyDev',
+  mode: 'dark',
+  path: 'themes/robbydev.json',
+  ...overrides
+})
 
 describe('content-pack manifest contributions', () => {
   it('accepts the documented P1 contribution set without a worker', () => {
@@ -49,6 +58,7 @@ describe('content-pack manifest contributions', () => {
       languagePacks: [],
       keybindings: [],
       vmRecipes: [],
+      editorThemes: [],
       agents: []
     })
   })
@@ -151,5 +161,86 @@ describe('content-pack manifest contributions', () => {
         ])
       )
     }
+  })
+
+  it('keeps existing manifests without editorThemes valid', () => {
+    const parsed = pluginManifestSchema.safeParse(
+      manifest({
+        languagePacks: [{ locale: 'pt-BR', path: 'locales/pt-BR.json' }]
+      })
+    )
+
+    expect(parsed.success).toBe(true)
+  })
+
+  it.each(['dark', 'light', 'hc-dark', 'hc-light'])(
+    'accepts supported editor theme mode %j',
+    (mode) => {
+      const parsed = pluginEditorThemeContributionSchema.safeParse(
+        editorThemeContribution({ mode })
+      )
+
+      expect(parsed.success).toBe(true)
+    }
+  )
+
+  it.each(['sepia', '', 'DARK'])('rejects unsupported editor theme mode %j', (mode) => {
+    const parsed = pluginEditorThemeContributionSchema.safeParse(editorThemeContribution({ mode }))
+
+    expect(parsed.success).toBe(false)
+  })
+
+  it.each(['', '   ', 'x'.repeat(257)])('rejects invalid editor theme label %j', (label) => {
+    const parsed = pluginEditorThemeContributionSchema.safeParse(editorThemeContribution({ label }))
+
+    expect(parsed.success).toBe(false)
+  })
+
+  it.each(['', '../robbydev.json', '/themes/robbydev.json', 'themes/../robbydev.json'])(
+    'rejects unsafe editor theme path %j',
+    (path) => {
+      const parsed = pluginEditorThemeContributionSchema.safeParse(
+        editorThemeContribution({ path })
+      )
+
+      expect(parsed.success).toBe(false)
+    }
+  )
+
+  it('accepts 16 editor themes and rejects a seventeenth', () => {
+    const editorThemes = Array.from({ length: 16 }, (_, index) =>
+      editorThemeContribution({ id: `theme-${index}` })
+    )
+
+    expect(pluginManifestSchema.safeParse(manifest({ editorThemes })).success).toBe(true)
+    expect(
+      pluginManifestSchema.safeParse(
+        manifest({
+          editorThemes: [...editorThemes, editorThemeContribution({ id: 'theme-overflow' })]
+        })
+      ).success
+    ).toBe(false)
+  })
+
+  it('rejects duplicate local editor theme ids', () => {
+    const unique = pluginManifestSchema.safeParse(
+      manifest({
+        editorThemes: [
+          editorThemeContribution(),
+          editorThemeContribution({ id: 'robbydev-light', mode: 'light' })
+        ]
+      })
+    )
+    expect(unique.success).toBe(true)
+
+    const duplicate = pluginManifestSchema.safeParse(
+      manifest({
+        editorThemes: [
+          editorThemeContribution(),
+          editorThemeContribution({ label: 'RobbyDev Alternate' })
+        ]
+      })
+    )
+    expect(duplicate.success).toBe(false)
   })
 })

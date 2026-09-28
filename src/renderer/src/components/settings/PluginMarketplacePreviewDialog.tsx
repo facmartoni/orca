@@ -48,6 +48,19 @@ function contributionSummary(
       )
     },
     {
+      key: 'editorThemes',
+      count: contributes.editorThemes.length,
+      one: translate(
+        'auto.components.settings.PluginMarketplacePreviewDialog.editorThemesOne',
+        '1 editor theme'
+      ),
+      many: translate(
+        'auto.components.settings.PluginMarketplacePreviewDialog.editorThemes',
+        '{{value0}} editor themes',
+        { value0: contributes.editorThemes.length }
+      )
+    },
+    {
       key: 'commands',
       count: contributes.commands.length,
       one: translate(

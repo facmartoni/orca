@@ -19,6 +19,8 @@ import { installMonacoDiffEditorDisposalGuard } from './monaco-diff-editor-dispo
 import { installMonacoPeekReferencesPreviewOptions } from './monaco-peek-preview-options'
 import { installMonacoContextMenuPaste } from '@/components/editor/install-monaco-context-menu-paste'
 import { registerMonacoThemes } from './monaco-themes'
+import { initializePluginEditorThemeRuntime } from './plugin-editor-theme-runtime'
+import { disposePluginEditorThemeChangeSubscription } from '@/store/plugin-editor-themes'
 import { runMonacoSetupSteps } from './monaco-setup-steps'
 
 globalThis.MonacoEnvironment = {
@@ -78,6 +80,8 @@ monacoTS.javascriptDefaults.setCompilerOptions({
   jsx: monacoTS.JsxEmit.Preserve
 })
 
+let disposePluginEditorThemeRuntime: (() => void) | undefined
+
 runMonacoSetupSteps([
   ['Vue language registration', () => registerVueLanguage(monaco)],
   ['Svelte language registration', () => registerSvelteLanguage(monaco)],
@@ -92,7 +96,13 @@ runMonacoSetupSteps([
   // Orca's sandboxed renderer. Route it through the trusted IPC bridge so right-click Paste
   // works like Cmd+V (which already works via native events).
   ['context-menu paste', () => installMonacoContextMenuPaste(monaco)],
-  ['custom editor themes', () => registerMonacoThemes(monaco)]
+  ['custom editor themes', () => registerMonacoThemes(monaco)],
+  [
+    'plugin editor themes',
+    () => {
+      disposePluginEditorThemeRuntime = initializePluginEditorThemeRuntime(monaco)
+    }
+  ]
 ])
 
 // Configure Monaco to use the locally bundled editor instead of CDN
@@ -100,7 +110,11 @@ loader.config({ monaco })
 
 const unregisterEditorModelRegistry = editorModelRegistry.register(monaco)
 if (import.meta.hot) {
-  import.meta.hot.dispose(unregisterEditorModelRegistry)
+  import.meta.hot.dispose(() => {
+    disposePluginEditorThemeRuntime?.()
+    disposePluginEditorThemeChangeSubscription()
+    unregisterEditorModelRegistry()
+  })
 }
 // Re-export for convenience
 export { monaco }

@@ -20,7 +20,9 @@ import {
 } from '@/lib/windows-terminal-capabilities'
 import { getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { useAppStore } from '@/store'
+import { usePluginEditorThemeOptions } from '@/store/plugin-editor-themes'
 import type { Repo } from '../../../shared/repo-types'
+import type { PluginEditorThemeRegistration } from '../../../shared/plugins/plugin-editor-theme-artifact'
 import {
   buildCapabilitySettingsSections,
   buildSetupSettingsSections
@@ -43,6 +45,7 @@ export function buildSettingsNavigationMetadata({
   mobileEmulatorCreationEnabled = !isWebClient,
   isDev = import.meta.env.DEV,
   isLinearConnected = false,
+  pluginEditorThemes = [],
   repos
 }: {
   isMac: boolean
@@ -54,6 +57,7 @@ export function buildSettingsNavigationMetadata({
   mobileEmulatorCreationEnabled?: boolean
   isDev?: boolean
   isLinearConnected?: boolean
+  pluginEditorThemes?: readonly PluginEditorThemeRegistration[]
   repos: readonly Repo[]
 }): SettingsNavSection[] {
   const terminalPaneSearchEntries = getTerminalPaneSearchEntries({
@@ -80,6 +84,7 @@ export function buildSettingsNavigationMetadata({
     mobileEmulatorCreationEnabled,
     isDev,
     isLinearConnected,
+    pluginEditorThemes,
     repos
   }
 
@@ -104,6 +109,7 @@ export function useSettingsNavigationMetadata(): SettingsNavSection[] {
   const activeLocale = i18n.language
   const repos = useAppStore((state) => state.repos)
   const settings = useAppStore((state) => state.settings)
+  const pluginEditorThemes = usePluginEditorThemeOptions()
   const [managedBrowserCreationEnabled, mobileEmulatorCreationEnabled] = useAppStore(
     useShallow((state) => {
       const policy = getClientCreationActionPolicy(state, state.activeWorktreeId)
@@ -159,6 +165,7 @@ export function useSettingsNavigationMetadata(): SettingsNavSection[] {
         mobileEmulatorCreationEnabled,
         isDev: import.meta.env.DEV,
         isLinearConnected,
+        pluginEditorThemes,
         repos
       }),
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- activeLocale is read implicitly by the translate() calls inside buildSettingsNavigationMetadata; without it the memo keeps the previous language's sections.
@@ -171,6 +178,7 @@ export function useSettingsNavigationMetadata(): SettingsNavSection[] {
       managedBrowserCreationEnabled,
       mobileEmulatorCreationEnabled,
       isLinearConnected,
+      pluginEditorThemes,
       repos,
       activeLocale
     ]

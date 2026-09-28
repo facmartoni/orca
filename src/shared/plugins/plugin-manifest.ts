@@ -2,10 +2,12 @@ import { z } from 'zod'
 import { pluginCapabilitySchema } from './plugin-capabilities'
 import {
   PLUGIN_AGENT_PROFILE_LIMIT,
+  PLUGIN_EDITOR_THEME_LIMIT,
   PLUGIN_KEYBINDING_LIMIT,
   PLUGIN_LANGUAGE_PACK_LIMIT,
   PLUGIN_VM_RECIPE_LIMIT,
   pluginAgentProfileContributionSchema,
+  pluginEditorThemeContributionSchema,
   pluginKeybindingContributionSchema,
   pluginLanguagePackContributionSchema,
   pluginVmRecipeContributionSchema
@@ -111,6 +113,10 @@ export const pluginManifestSchema = z
           .array(pluginVmRecipeContributionSchema)
           .max(PLUGIN_VM_RECIPE_LIMIT)
           .default([]),
+      editorThemes: z
+        .array(pluginEditorThemeContributionSchema)
+        .max(PLUGIN_EDITOR_THEME_LIMIT)
+        .default([]),
         agents: z
           .array(pluginAgentProfileContributionSchema)
           .max(PLUGIN_AGENT_PROFILE_LIMIT)
@@ -124,6 +130,7 @@ export const pluginManifestSchema = z
         languagePacks: [],
         keybindings: [],
         vmRecipes: [],
+        editorThemes: [],
         agents: []
       })),
     capabilities: z.array(pluginCapabilitySchema).max(32).default([])

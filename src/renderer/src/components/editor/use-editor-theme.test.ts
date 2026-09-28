@@ -1,8 +1,40 @@
 // @vitest-environment happy-dom
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
+import {
+  pluginEditorThemeId,
+  pluginEditorThemeMonacoName
+} from '../../../../shared/plugins/plugin-editor-theme-artifact'
+import type { PluginEditorThemeRegistration } from '../../../../shared/plugins/plugin-editor-theme-artifact'
+import {
+  createPluginEditorThemeCatalog,
+  usePluginEditorThemeStore
+} from '@/store/plugin-editor-themes'
+
+function pluginTheme(): PluginEditorThemeRegistration {
+  const pluginKey = 'tests.hook-theme'
+  const localId = 'reactive'
+  const id = pluginEditorThemeId(pluginKey, localId)
+  return {
+    id,
+    monacoName: pluginEditorThemeMonacoName(id),
+    pluginKey,
+    localId,
+    label: 'Reactive Theme',
+    mode: 'dark',
+    data: {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [],
+      colors: {
+        'editor.background': '#0a0614',
+        'editor.foreground': '#f0e7f3'
+      }
+    }
+  }
+}
 
 let mockSettings: Partial<GlobalSettings> = {
   theme: 'system',
@@ -21,6 +53,19 @@ vi.mock('./use-document-dark-theme', () => ({
 }))
 
 import { useEditorTheme } from './use-editor-theme'
+
+beforeEach(() => {
+  usePluginEditorThemeStore.setState({
+    pending: { generation: 1, registrations: [] },
+    active: createPluginEditorThemeCatalog([], 1),
+    loading: false,
+    error: null
+  })
+})
+
+afterEach(() => {
+  cleanup()
+})
 
 describe('useEditorTheme', () => {
   beforeEach(() => {
@@ -53,5 +98,37 @@ describe('useEditorTheme', () => {
     mockIsDark = false
     const { result: lightResult } = renderHook(() => useEditorTheme())
     expect(lightResult.current).toBe('vs')
+  })
+})
+
+describe('plugin editor theme reactivity', () => {
+  it('falls back and recovers when the active catalog changes without mutating settings', () => {
+    const registration = pluginTheme()
+    const active = createPluginEditorThemeCatalog([registration], 2)
+    mockIsDark = true
+    mockSettings = {
+      theme: 'dark',
+      editorThemeDark: registration.id
+    }
+    usePluginEditorThemeStore.setState({
+      pending: { generation: 2, registrations: [registration] },
+      active
+    })
+
+    const { result } = renderHook(() => useEditorTheme())
+    expect(result.current).toBe(registration.monacoName)
+
+    act(() => {
+      usePluginEditorThemeStore.setState({
+        active: createPluginEditorThemeCatalog([], 2)
+      })
+    })
+    expect(result.current).toBe('vs-dark')
+
+    act(() => {
+      usePluginEditorThemeStore.setState({ active })
+    })
+    expect(result.current).toBe(registration.monacoName)
+    expect(mockSettings.editorThemeDark).toBe(registration.id)
   })
 })

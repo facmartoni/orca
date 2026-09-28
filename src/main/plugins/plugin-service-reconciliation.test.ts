@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -33,6 +33,51 @@ function manifest(options: { main?: string; capabilities?: PluginManifest['capab
   })
 }
 
+function editorThemeManifest(): PluginManifest {
+  return pluginManifestSchema.parse({
+    manifestVersion: 1,
+    id: 'demo',
+    publisher: 'orca-samples',
+    name: 'Demo Theme',
+    version: '1.0.0',
+    engines: { orca: '>=1.0.0' },
+    pluginApi: 1,
+    contributes: {
+      editorThemes: [
+        {
+          id: 'robbydev',
+          label: 'RobbyDev',
+          mode: 'dark',
+          path: 'themes/theme.json'
+        }
+      ]
+    },
+    capabilities: []
+  })
+}
+
+async function editorThemeRoot(pluginManifest: PluginManifest): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), 'orca-plugin-theme-reconcile-'))
+  roots.push(root)
+  await mkdir(join(root, 'themes'))
+  await Promise.all([
+    writeFile(join(root, 'orca-plugin.json'), JSON.stringify(pluginManifest)),
+    writeFile(
+      join(root, 'themes', 'theme.json'),
+      JSON.stringify({
+        base: 'vs-dark',
+        inherit: true,
+        rules: [{ token: 'comment', foreground: '8a9aa8' }],
+        colors: {
+          'editor.background': '#0a0614',
+          'editor.foreground': '#f0e7f3'
+        }
+      })
+    )
+  ])
+  return root
+}
+
 async function pluginRoot(pluginManifest = manifest()): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'orca-plugin-reconcile-'))
   roots.push(root)
@@ -56,12 +101,12 @@ function testWorker(): PluginWorkerHandle & { dispose: ReturnType<typeof vi.fn> 
   }
 }
 
-function createHarness(root: string) {
+function createHarness(root: string, consentManifest: PluginManifest = manifest()) {
   let enabled = true
   let disabled: string[] = []
   let devPaths = [root]
   let killed = false
-  const consent = fingerprintPluginConsent(manifest())
+  const consent = fingerprintPluginConsent(consentManifest)
   const workers: ReturnType<typeof testWorker>[] = []
   const factory = vi.fn<PluginWorkerFactory>(async () => {
     const handle = testWorker()
@@ -458,5 +503,39 @@ describe('PluginService worker reconciliation', () => {
       'disabled'
     )
     expect(harness.service.workerState(pluginKey).state).toBe('inactive')
+  })
+
+  it('removes a disabled editor theme and restores it when re-enabled', async () => {
+    const pluginManifest = editorThemeManifest()
+    const root = await editorThemeRoot(pluginManifest)
+    const harness = createHarness(root, pluginManifest)
+
+    await harness.service.initialize()
+    expect(harness.service.contentPacks.editorThemes.list()).toMatchObject([
+      {
+        id: 'orca-samples.demo/robbydev',
+        pluginKey,
+        localId: 'robbydev',
+        mode: 'dark',
+        data: {
+          colors: {
+          'editor.background': '#0a0614',
+          'editor.foreground': '#f0e7f3'
+        }
+        }
+      }
+    ])
+
+    harness.setDisabled([pluginKey])
+    await harness.service.refresh()
+    expect(harness.service.contentPacks.editorThemes.list()).toEqual([])
+    expect(harness.service.contentPacks.error(pluginKey)).toBeNull()
+
+    harness.setDisabled([])
+    await harness.service.refresh()
+    expect(harness.service.contentPacks.editorThemes.list().map((theme) => theme.id)).toEqual([
+      'orca-samples.demo/robbydev'
+    ])
+    expect(harness.service.contentPacks.error(pluginKey)).toBeNull()
   })
 })

@@ -87,4 +87,34 @@ describe('pluginManifestSchema boundaries', () => {
       ).ok
     ).toBe(false)
   })
+
+  it('accepts a declarative editor theme without main or capabilities', () => {
+    const result = pluginManifestSchema.safeParse({
+      manifestVersion: 1,
+      publisher: 'robbyfuu',
+      id: 'robbydev-editor-theme',
+      name: 'RobbyDev Editor Theme',
+      version: '1.0.0',
+      engines: { orca: '>=1.5.0' },
+      pluginApi: 1,
+      contributes: {
+        editorThemes: [
+          {
+            id: 'robbydev',
+            label: 'RobbyDev',
+            mode: 'dark',
+            path: 'themes/robbydev.json'
+          }
+        ]
+      },
+      capabilities: []
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) {
+      return
+    }
+    expect(result.data.main).toBeUndefined()
+    expect(result.data.contributes.editorThemes).toHaveLength(1)
+  })
 })

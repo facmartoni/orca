@@ -1,3 +1,4 @@
+import type { PluginEditorThemeRegistration } from '../../../../shared/plugins/plugin-editor-theme-artifact'
 import type { SettingsSearchEntry } from './settings-search'
 import { getGeneralEditorSearchEntries } from './general-editor-search'
 import { translate } from '@/i18n/i18n'
@@ -255,6 +256,7 @@ export const getGeneralUpdateSearchEntries = createLocalizedCatalog(() => [
 
 type GeneralPaneSearchOptions = {
   includeProjectRuntime?: boolean
+  pluginEditorThemes?: readonly PluginEditorThemeRegistration[]
 }
 
 export function getGeneralPaneSearchEntries(
@@ -264,7 +266,7 @@ export function getGeneralPaneSearchEntries(
     ...getGeneralWorkspaceSearchEntries(),
     ...getGeneralNavigationSearchEntries(),
     ...(options.includeProjectRuntime === false ? [] : getGeneralProjectRuntimeSearchEntries()),
-    ...getGeneralEditorSearchEntries(),
+    ...getGeneralEditorSearchEntries(options.pluginEditorThemes),
     ...getGeneralCliSearchEntries(),
     ...getGeneralUpdateSearchEntries(),
     ...getGeneralSupportSearchEntries()
