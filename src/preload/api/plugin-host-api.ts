@@ -3,6 +3,7 @@ import type {
   PluginPanelEntry
 } from '../../shared/plugins/plugin-panel-bridge'
 import type { PluginConsentRequest } from '../../shared/plugins/plugin-consent-request'
+import type { PluginEditorThemeRegistration } from '../../shared/plugins/plugin-editor-theme-artifact'
 import type { PluginLanguagePackRegistration } from '../../shared/plugins/plugin-language-pack-artifact'
 import type { PluginChangeEvent } from '../../shared/plugins/plugin-change-event'
 import type { PluginManifest } from '../../shared/plugins/plugin-manifest'
@@ -143,6 +144,7 @@ export type PluginMarketplaceHostInstallPreview = {
 export type PluginsApi = {
   list: () => Promise<PluginHostListEntry[]>
   listLanguagePacks: () => Promise<PluginLanguagePackRegistration[]>
+  listEditorThemes: () => Promise<PluginEditorThemeRegistration[]>
   /** Records the consent-dialog answer; approval is keyed to the plugin's
    *  current capability and trusted-worker fingerprint. */
   consent: (args: PluginConsentRequest) => Promise<PluginHostListEntry[]>

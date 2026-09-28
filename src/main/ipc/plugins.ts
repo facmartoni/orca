@@ -116,6 +116,10 @@ export function registerPluginHandlers(
     await pluginService.whenReady()
     return pluginService.contentPacks.languagePacks.list()
   })
+  ipcMain.handle('plugins:listEditorThemes', async () => {
+    await pluginService.whenReady()
+    return pluginService.contentPacks.editorThemes.list()
+  })
   ipcMain.handle('plugins:consent', async (event, args: unknown) => {
     await pluginService.whenReady()
     const parsed = parsePluginConsentArgs(args)
