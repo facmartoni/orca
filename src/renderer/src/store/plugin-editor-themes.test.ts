@@ -98,6 +98,32 @@ describe('plugin editor theme store', () => {
     expect(state.active.byId.has(registration.id)).toBe(false)
   })
 
+  it('validates theme data once and publishes the normalized registration', async () => {
+    const expectedRegistration = theme('single-validation')
+    const expectedData = expectedRegistration.data
+    let dataReads = 0
+    const registration: PluginEditorThemeRegistration = {
+      ...expectedRegistration,
+      get data() {
+        dataReads += 1
+        if (dataReads > 1) {
+          throw new Error('theme data read more than once')
+        }
+        return expectedData
+      }
+    }
+    vi.stubGlobal('api', {
+      plugins: { listEditorThemes: vi.fn().mockResolvedValue([registration]) }
+    })
+
+    await editorThemes.refreshPluginEditorThemes()
+
+    const validated = editorThemes.usePluginEditorThemeStore.getState().pending.registrations[0]
+    expect(validated).toEqual(expectedRegistration)
+    expect(validated!.data).not.toBe(expectedData)
+    expect(dataReads).toBe(1)
+  })
+
   it('fences a stale active-catalog commit and admits the current generation', async () => {
     const older = theme('older-definition')
     const current = theme('current-definition')
@@ -123,6 +149,24 @@ describe('plugin editor theme store', () => {
     )
     editorThemes.commitActivePluginEditorThemes(pending.generation, currentCatalog)
     expect(editorThemes.usePluginEditorThemeStore.getState().active).toBe(currentCatalog)
+  })
+
+  it('rejects an active catalog whose revision disagrees with the pending generation', async () => {
+    const registration = theme('mismatched-revision')
+    vi.stubGlobal('api', {
+      plugins: { listEditorThemes: vi.fn().mockResolvedValue([registration]) }
+    })
+    await editorThemes.refreshPluginEditorThemes()
+    const pending = editorThemes.usePluginEditorThemeStore.getState().pending
+    const activeBefore = editorThemes.usePluginEditorThemeStore.getState().active
+    const mismatchedCatalog = editorThemes.createPluginEditorThemeCatalog(
+      pending.registrations,
+      pending.generation + 1
+    )
+
+    editorThemes.commitActivePluginEditorThemes(pending.generation, mismatchedCatalog)
+
+    expect(editorThemes.usePluginEditorThemeStore.getState().active).toBe(activeBefore)
   })
 
   it.each([

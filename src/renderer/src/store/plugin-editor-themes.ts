@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import {
-  isPluginEditorThemeRegistration,
+  parsePluginEditorThemeRegistration,
   type PluginEditorThemeRegistration
 } from '../../../shared/plugins/plugin-editor-theme-artifact'
 
@@ -51,7 +51,11 @@ export const usePluginEditorThemeStore = create<PluginEditorThemeState>()((set) 
   loading: false,
   error: null,
   commitActivePluginEditorThemes: (generation, catalog) =>
-    set((state) => (generation === state.pending.generation ? { active: catalog } : state))
+    set((state) =>
+      generation === state.pending.generation && catalog.revision === generation
+        ? { active: catalog }
+        : state
+    )
 }))
 
 export function createPluginEditorThemeCatalog(
@@ -110,9 +114,15 @@ export async function refreshPluginEditorThemes(): Promise<void> {
 
   try {
     const response: unknown = await pluginsApi.listEditorThemes()
-    const registrations = Array.isArray(response)
-      ? response.filter(isPluginEditorThemeRegistration)
-      : []
+    const registrations: PluginEditorThemeRegistration[] = []
+    if (Array.isArray(response)) {
+      for (const candidate of response) {
+        const registration = parsePluginEditorThemeRegistration(candidate)
+        if (registration !== null) {
+          registrations.push(registration)
+        }
+      }
+    }
     if (generation === requestGeneration) {
       usePluginEditorThemeStore.setState({
         pending: { generation, registrations },
@@ -147,7 +157,7 @@ export function ensurePluginEditorThemesLoaded(): void {
 
   if (!changeSubscriptionStarted && window.api?.plugins?.onChanged) {
     window.api.plugins.onChanged((event) => {
-      if (event.contentPacksChanged) {
+      if (event?.contentPacksChanged ?? true) {
         void refreshPluginEditorThemes()
       }
     })

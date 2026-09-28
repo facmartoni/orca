@@ -39,8 +39,8 @@ function installBridge() {
     requests.push(request)
     return request.promise
   })
-  const listeners: ((event: PluginChangeEvent) => void)[] = []
-  const onChanged = vi.fn((listener: (event: PluginChangeEvent) => void) => {
+  const listeners: ((event?: PluginChangeEvent) => void)[] = []
+  const onChanged = vi.fn((listener: (event?: PluginChangeEvent) => void) => {
     listeners.push(listener)
     return () => {}
   })
@@ -110,6 +110,28 @@ describe('plugin editor theme startup ownership', () => {
     const state = editorThemes.usePluginEditorThemeStore.getState()
     expect(bridge.listEditorThemes).toHaveBeenCalledTimes(2)
     expect(state.pending.registrations).toEqual([changed])
+    expect(state.loading).toBe(false)
+  })
+
+  it('treats a legacy change without payload as a content change and fails closed', async () => {
+    const bridge = installBridge()
+    editorThemes.ensurePluginEditorThemesLoaded()
+
+    expect(() => bridge.listeners[0]!()).not.toThrow()
+    expect(bridge.listEditorThemes).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      bridge.requests[1]!.reject(new Error('legacy refresh failed'))
+      await bridge.requests[1]!.promise.catch(() => undefined)
+    })
+    await act(async () => {
+      bridge.requests[0]!.resolve([theme('stale-startup')])
+      await bridge.requests[0]!.promise
+    })
+
+    const state = editorThemes.usePluginEditorThemeStore.getState()
+    expect(state.pending.generation).toBeGreaterThan(0)
+    expect(state.pending.registrations).toEqual([])
     expect(state.loading).toBe(false)
   })
 

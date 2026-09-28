@@ -144,11 +144,11 @@ const BASE_BY_MODE = {
 } as const satisfies Record<PluginEditorThemeMode, PluginEditorThemeData['base']>
 
 
-export function isPluginEditorThemeRegistration(
+export function parsePluginEditorThemeRegistration(
   value: unknown
-): value is PluginEditorThemeRegistration {
+): PluginEditorThemeRegistration | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return false
+    return null
   }
   const registration = value as Record<string, unknown>
   if (
@@ -165,22 +165,38 @@ export function isPluginEditorThemeRegistration(
     typeof registration.mode !== 'string' ||
     !PLUGIN_EDITOR_THEME_MODES.includes(registration.mode as PluginEditorThemeMode)
   ) {
-    return false
+    return null
   }
 
   const id = `${registration.pluginKey}/${registration.localId}` as PluginEditorThemeId
+  const mode = registration.mode as PluginEditorThemeMode
+  const sourceData = registration.data
   if (
     registration.id !== id ||
     registration.monacoName !== pluginEditorThemeMonacoName(id) ||
-    dangerousOwnEditorColorKey(registration.data) !== undefined
+    dangerousOwnEditorColorKey(sourceData) !== undefined
   ) {
-    return false
+    return null
   }
-  const data = pluginEditorThemeArtifactSchema.safeParse(registration.data)
-  return (
-    data.success &&
-    data.data.base === BASE_BY_MODE[registration.mode as PluginEditorThemeMode]
-  )
+  const data = pluginEditorThemeArtifactSchema.safeParse(sourceData)
+  if (!data.success || data.data.base !== BASE_BY_MODE[mode]) {
+    return null
+  }
+  return {
+    id,
+    monacoName: registration.monacoName,
+    pluginKey: registration.pluginKey,
+    localId: registration.localId,
+    label: registration.label,
+    mode,
+    data: data.data
+  }
+}
+
+export function isPluginEditorThemeRegistration(
+  value: unknown
+): value is PluginEditorThemeRegistration {
+  return parsePluginEditorThemeRegistration(value) !== null
 }
 export function parsePluginEditorThemeArtifact(
   raw: string,
