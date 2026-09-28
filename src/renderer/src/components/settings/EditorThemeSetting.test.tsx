@@ -5,6 +5,7 @@ import { screen } from '@testing-library/react'
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type * as ReactI18nextModule from 'react-i18next'
 import { getDefaultSettings } from '../../../../shared/constants'
 import {
   pluginEditorThemeId,
@@ -16,9 +17,37 @@ import {
   createPluginEditorThemeCatalog,
   usePluginEditorThemeStore
 } from '@/store/plugin-editor-themes'
+import type * as EditorThemeSearchMetadataModule from './editor-theme-search-metadata'
 
 const searchState = vi.hoisted(() => ({ query: '' }))
 const monacoSetupLoaded = vi.hoisted(() => vi.fn())
+const localeState = vi.hoisted(() => {
+  const state = {
+    language: 'en',
+    async changeLanguage(language: string): Promise<void> {
+      state.language = language
+    }
+  }
+  return state
+})
+
+vi.mock('react-i18next', async (importOriginal) => {
+  const actual = await importOriginal<typeof ReactI18nextModule>()
+  return {
+    ...actual,
+    useTranslation: () => ({ i18n: localeState })
+  }
+})
+
+vi.mock('./editor-theme-search-metadata', async (importOriginal) => {
+  const actual = await importOriginal<typeof EditorThemeSearchMetadataModule>()
+  return {
+    ...actual,
+    getEditorThemeSearchKeywords: (
+      ...args: Parameters<typeof actual.getEditorThemeSearchKeywords>
+    ) => [...actual.getEditorThemeSearchKeywords(...args), `locale-${localeState.language}`]
+  }
+})
 
 vi.mock('@/lib/monaco-setup', () => {
   monacoSetupLoaded()
@@ -65,10 +94,10 @@ vi.mock('../ui/select', async () => {
         {children}
       </button>
     ),
-    SelectValue: () => {
+    SelectValue: ({ children }: { children?: React.ReactNode }) => {
       const { value } = ReactModule.useContext(SelectContext)
       const label = ALL_EDITOR_THEMES.find((theme) => theme.id === value)?.name ?? value
-      return <span data-slot="select-value">{label}</span>
+      return <span data-slot="select-value">{children ?? label}</span>
     },
     SelectContent: ({ children }: { children: React.ReactNode }) => (
       <div data-slot="select-content">{children}</div>
@@ -129,7 +158,10 @@ function pluginTheme(
       base: BASE_BY_MODE[mode],
       inherit: true,
       rules: [],
-      colors: {}
+      colors: {
+        'editor.background': '#0a0614',
+        'editor.foreground': '#f0e7f3'
+      }
     }
   }
 }
@@ -162,6 +194,7 @@ let container: HTMLDivElement | null = null
 
 beforeEach(() => {
   monacoSetupLoaded.mockClear()
+  localeState.language = 'en'
   searchState.query = ''
   vi.stubGlobal('api', { plugins: {} })
   publishThemeOptions([], 1, [], 1)
@@ -364,6 +397,9 @@ describe('plugin editor themes in Settings', () => {
     const unavailable = settledDarkSelect.querySelector<HTMLButtonElement>(
       `button[data-value="${missingId}"]`
     )
+    const selectedValue = settledDarkSelect.querySelector('[data-slot="select-value"]')
+    expect(selectedValue).not.toBeNull()
+    expect(selectedValue?.textContent).toBe(`Unavailable — ${missingId}`)
     expect(unavailable?.disabled).toBe(true)
     expect(unavailable?.textContent).toContain('Unavailable')
     expect(unavailable?.textContent).toContain(missingId)
@@ -400,6 +436,21 @@ describe('plugin editor themes in Settings', () => {
     ).toBeTruthy()
     expect(
       screen.getByRole('option', { name: /^Dracula — tests\.second-owner$/ })
+    ).toBeTruthy()
+  })
+
+  it('uses public IDs when duplicate labels also share one plugin key', () => {
+    const first = pluginTheme('first', 'dark', 'Twin', 'tests.same-owner')
+    const second = pluginTheme('second', 'dark', 'Twin', 'tests.same-owner')
+    publishThemeOptions([first, second], 11, [first, second], 11)
+
+    renderSetting()
+
+    expect(
+      screen.getByRole('option', { name: `Twin — ${first.id}` })
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('option', { name: `Twin — ${second.id}` })
     ).toBeTruthy()
   })
 })
@@ -440,4 +491,23 @@ describe('editor theme inner search metadata', () => {
       ).not.toBeNull()
     }
   )
+})
+
+describe('editor theme locale reactivity', () => {
+  it('recomputes memoized search keywords after the active locale changes', async () => {
+    searchState.query = 'locale-fr'
+    const settings = getDefaultSettings(join('test', 'home'))
+    const updateSettings = vi.fn()
+    const { container } = renderSetting({}, updateSettings)
+    expect(container.querySelector('[data-slot="select"]')).toBeNull()
+
+    await act(async () => {
+      await localeState.changeLanguage('fr')
+      root?.render(
+        <EditorThemeSetting settings={settings} updateSettings={updateSettings} />
+      )
+    })
+
+    expect(container.querySelector('[data-slot="select"]')).not.toBeNull()
+  })
 })

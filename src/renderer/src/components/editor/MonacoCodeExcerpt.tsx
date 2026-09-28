@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { monaco } from '@/lib/monaco-setup'
 import { computeEditorFontSize, resolveEditorFontFamily } from '@/lib/editor-font-zoom'
 import { useAppStore } from '@/store'
+import { usePluginEditorThemeStore } from '@/store/plugin-editor-themes'
 import { cn } from '@/lib/utils'
 import { useEditorTheme } from './use-editor-theme'
 
@@ -33,6 +34,7 @@ async function ensureColorizationLanguage(language: string): Promise<void> {
 /** Monaco token HTML per line; loads lazy tokenizers (e.g. Python) before colorizing. */
 export function useMonacoColorizedLines(lines: string[], language: string): string[] {
   const editorTheme = useEditorTheme()
+  const pluginThemeRevision = usePluginEditorThemeStore((state) => state.active.revision)
   const code = useMemo(() => lines.join('\n'), [lines])
   const [htmlLines, setHtmlLines] = useState<string[]>(() => lines.map(() => ''))
 
@@ -65,7 +67,7 @@ export function useMonacoColorizedLines(lines: string[], language: string): stri
     return () => {
       cancelled = true
     }
-  }, [code, language, lines, editorTheme])
+  }, [code, language, lines, editorTheme, pluginThemeRevision])
 
   return htmlLines
 }

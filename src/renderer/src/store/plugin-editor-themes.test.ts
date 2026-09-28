@@ -39,7 +39,10 @@ function theme(
       base: BASE_BY_MODE[mode],
       inherit: true,
       rules: [],
-      colors: {}
+      colors: {
+        'editor.background': '#0a0614',
+        'editor.foreground': '#f0e7f3'
+      }
     }
   }
 }

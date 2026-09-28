@@ -41,10 +41,22 @@ function tokenRules(count: number): Array<{ token: string }> {
   return Array.from({ length: count }, (_, index) => ({ token: `t${index}` }))
 }
 
+function tokenColorRules(count: number): Array<{ token: string; foreground: string }> {
+  return Array.from({ length: count }, (_, index) => ({
+    token: `color${index}`,
+    foreground: index.toString(16).padStart(6, '0')
+  }))
+}
+
 function editorColors(count: number): Record<string, string> {
-  return Object.fromEntries(
-    Array.from({ length: count }, (_, index) => [`editor.color${index}`, '#0a0614'])
-  )
+  return Object.fromEntries([
+    ['editor.background', '#0a0614'],
+    ['editor.foreground', '#f0e7f3'],
+    ...Array.from({ length: Math.max(0, count - 2) }, (_, index) => [
+      `editor.color${index}`,
+      '#0a0614'
+    ])
+  ])
 }
 
 const rejectedArtifact = {
@@ -80,15 +92,16 @@ describe('plugin editor theme artifacts', () => {
     })
   })
 
-  it('accepts six- and eight-digit colors in their documented formats', async () => {
+  it('accepts six-digit token colors and six- or eight-digit editor colors', async () => {
     const theme = {
       ...validTheme,
       rules: [
         { token: 'foreground', foreground: '8a9aa8' },
-        { token: 'background', background: '0a061480' }
+        { token: 'background', background: '0a0614' }
       ],
       colors: {
         'editor.background': '#0a0614',
+        'editor.foreground': '#f0e7f3',
         'editor.selectionBackground': '#2aecc980'
       }
     }
@@ -128,8 +141,19 @@ describe('plugin editor theme artifacts', () => {
     ],
     ['short token color', themeRaw({ rules: [{ token: 'x', foreground: 'fff' }] })],
     ['non-hex token color', themeRaw({ rules: [{ token: 'x', foreground: 'zzzzzz' }] })],
-    ['named editor color', themeRaw({ colors: { x: 'red' } })],
-    ['editor color without a hash prefix', themeRaw({ colors: { x: '0a0614' } })]
+    ['named editor color', themeRaw({ colors: { ...validTheme.colors, x: 'red' } })],
+    [
+      'editor color without a hash prefix',
+      themeRaw({ colors: { ...validTheme.colors, x: '0a0614' } })
+    ],
+    [
+      'eight-digit token foreground',
+      themeRaw({ rules: [{ token: 'x', foreground: '0a061480' }] })
+    ],
+    [
+      'eight-digit token background',
+      themeRaw({ rules: [{ token: 'x', background: '0a061480' }] })
+    ],
   ] as const)('rejects invalid %s', async (_name, raw) => {
     expect(await parsePluginEditorThemeArtifact(raw, 'dark')).toMatchObject(rejectedArtifact)
   })
@@ -157,6 +181,37 @@ describe('plugin editor theme artifacts', () => {
 
     expect(result).toMatchObject(rejectedArtifact)
   })
+
+  it('accepts exactly 224 distinct token colors', async () => {
+    expect(
+      await parsePluginEditorThemeArtifact(
+        themeRaw({ rules: tokenColorRules(224) }),
+        'dark'
+      )
+    ).toMatchObject({ ok: true })
+  })
+
+  it('rejects 225 distinct token colors', async () => {
+    expect(
+      await parsePluginEditorThemeArtifact(
+        themeRaw({ rules: tokenColorRules(225) }),
+        'dark'
+      )
+    ).toMatchObject(rejectedArtifact)
+  })
+
+  it.each(['editor.foreground', 'editor.background'] as const)(
+    'rejects a theme missing required default %s',
+    async (missingKey) => {
+      const colors = Object.fromEntries(
+        Object.entries(validTheme.colors).filter(([key]) => key !== missingKey)
+      )
+
+      expect(
+        await parsePluginEditorThemeArtifact(themeRaw({ colors }), 'dark')
+      ).toMatchObject(rejectedArtifact)
+    }
+  )
 
   it('accepts exactly 2,048 editor colors', async () => {
     const result = await parsePluginEditorThemeArtifact(

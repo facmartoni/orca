@@ -27,7 +27,10 @@ function theme(localId: string): PluginEditorThemeRegistration {
       base: 'vs-dark',
       inherit: true,
       rules: [],
-      colors: {}
+      colors: {
+        'editor.background': '#0a0614',
+        'editor.foreground': '#f0e7f3'
+      }
     }
   }
 }
@@ -230,5 +233,43 @@ describe('plugin editor theme store HMR cleanup', () => {
     editorThemes.ensurePluginEditorThemesLoaded()
     expect(bridge.onChanged).toHaveBeenCalledTimes(2)
     expect(bridge.listeners).toHaveLength(1)
+  })
+
+  it('refreshes the snapshot after bridge reacquisition and handles the next event', async () => {
+    const bridge = installBridge()
+    editorThemes.ensurePluginEditorThemesLoaded()
+    const initial = theme('initial-snapshot')
+    await act(async () => {
+      bridge.requests[0]!.resolve([initial])
+      await bridge.requests[0]!.promise
+    })
+
+    await vi.waitFor(() =>
+      expect(editorThemes.usePluginEditorThemeStore.getState().loading).toBe(false)
+    )
+    editorThemes.disposePluginEditorThemeChangeSubscription()
+    editorThemes.ensurePluginEditorThemesLoaded()
+
+    expect(bridge.onChanged).toHaveBeenCalledTimes(2)
+    expect(bridge.listEditorThemes).toHaveBeenCalledTimes(2)
+    const reacquired = theme('reacquired-snapshot')
+    await act(async () => {
+      bridge.requests[1]!.resolve([reacquired])
+      await bridge.requests[1]!.promise
+    })
+    expect(editorThemes.usePluginEditorThemeStore.getState().pending.registrations).toEqual([
+      reacquired
+    ])
+
+    bridge.listeners[0]!({ contentPacksChanged: true })
+    expect(bridge.listEditorThemes).toHaveBeenCalledTimes(3)
+    const changed = theme('event-snapshot')
+    await act(async () => {
+      bridge.requests[2]!.resolve([changed])
+      await bridge.requests[2]!.promise
+    })
+    expect(editorThemes.usePluginEditorThemeStore.getState().pending.registrations).toEqual([
+      changed
+    ])
   })
 })

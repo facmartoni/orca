@@ -38,13 +38,19 @@ const TOKEN_RULE_LIMIT = 4_096
 const EDITOR_COLOR_LIMIT = 2_048
 const TOKEN_NAME_LIMIT = 256
 const EDITOR_COLOR_KEY_LIMIT = 128
+// Monaco 0.55.1 stores token background color IDs in 8 bits
+// (BACKGROUND_MASK 0xff000000, offset 24), so ID 255 is the ceiling.
+// Its bundled bases use at most 25 distinct token colors. Reserving two more
+// IDs for required editor defaults leaves 224 plugin colors at 251 total,
+// with four IDs of headroom for base-theme drift.
+const TOKEN_COLOR_LIMIT = 224
 const DANGEROUS_KEYS = {
   ['__proto__']: true,
   prototype: true,
   constructor: true
 } as const satisfies Record<string, true>
 const CONTROL_CHARACTER_RE = /[\u0000-\u001f\u007f-\u009f]/
-const TOKEN_COLOR_RE = /^[0-9a-f]{6}(?:[0-9a-f]{2})?$/i
+const TOKEN_COLOR_RE = /^[0-9a-f]{6}$/i
 const EDITOR_COLOR_RE = /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i
 const FONT_STYLE_RE =
   /^(?:(?:italic|bold|underline|strikethrough)(?: (?:italic|bold|underline|strikethrough))*)?$/
@@ -78,9 +84,7 @@ const tokenNameSchema = z
   .max(TOKEN_NAME_LIMIT)
   .refine((value) => !CONTROL_CHARACTER_RE.test(value), 'must not contain control characters')
 
-const tokenColorSchema = z
-  .string()
-  .regex(TOKEN_COLOR_RE, 'must be RRGGBB or RRGGBBAA without #')
+const tokenColorSchema = z.string().regex(TOKEN_COLOR_RE, 'must be RRGGBB without #')
 
 const tokenRuleSchema = z
   .object({
@@ -94,6 +98,18 @@ const tokenRuleSchema = z
       .optional()
   })
   .strict()
+
+const tokenRulesSchema = z
+  .array(tokenRuleSchema)
+  .max(TOKEN_RULE_LIMIT)
+  .refine((rules) => {
+    const colors = new Set<string>()
+    for (const rule of rules) {
+      if (rule.foreground) colors.add(rule.foreground.toUpperCase())
+      if (rule.background) colors.add(rule.background.toUpperCase())
+    }
+    return colors.size <= TOKEN_COLOR_LIMIT
+  }, `must use at most ${TOKEN_COLOR_LIMIT} distinct token colors`)
 
 const editorColorKeySchema = z
   .string()
@@ -110,12 +126,20 @@ const pluginEditorThemeArtifactSchema = z
   .object({
     base: z.enum(['vs', 'vs-dark', 'hc-black', 'hc-light']),
     inherit: z.boolean(),
-    rules: z.array(tokenRuleSchema).max(TOKEN_RULE_LIMIT),
+    rules: tokenRulesSchema,
     colors: z
       .record(editorColorKeySchema, editorColorSchema)
       .refine(
         (colors) => Object.keys(colors).length <= EDITOR_COLOR_LIMIT,
         `must contain at most ${EDITOR_COLOR_LIMIT} entries`
+      )
+      .refine(
+        (colors) => colors['editor.foreground'] !== undefined,
+        'must define editor.foreground'
+      )
+      .refine(
+        (colors) => colors['editor.background'] !== undefined,
+        'must define editor.background'
       )
   })
   .strict()

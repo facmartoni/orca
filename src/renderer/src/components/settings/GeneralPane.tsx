@@ -1,5 +1,6 @@
 import type React from 'react'
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import { useAppStore } from '../../store'
 import { Separator } from '../ui/separator'
@@ -102,6 +103,8 @@ export function GeneralPane({
   wslDistros = EMPTY_WSL_DISTROS,
   wslCapabilitiesLoading
 }: GeneralPaneProps): React.JSX.Element {
+  const { i18n } = useTranslation()
+  const activeLocale = i18n.language
   const searchQuery = useAppStore((s) => s.settingsSearchQuery)
   const pluginEditorThemes = usePluginEditorThemeOptions()
   const sourceDefaultsSupportedRuntimeEnvironmentId = useAppStore(
@@ -121,7 +124,7 @@ export function GeneralPane({
   const generalNavigationSearchEntries = getGeneralNavigationSearchEntries()
   const generalEditorSearchEntries = useMemo(
     () => getGeneralEditorSearchEntries(pluginEditorThemes),
-    [pluginEditorThemes]
+    [pluginEditorThemes, activeLocale]
   )
   const tabOrderKeywords = getTabOrderControlSearchKeywords(generalNavigationSearchEntries)
   const projectRuntimeSearchEntries = wslSupportedPlatform

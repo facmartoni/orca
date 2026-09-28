@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type React from 'react'
+import { useTranslation } from 'react-i18next'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import type { PluginEditorThemeRegistration } from '../../../../shared/plugins/plugin-editor-theme-artifact'
 import { translate } from '@/i18n/i18n'
@@ -25,26 +26,51 @@ type EditorThemeSettingProps = {
   updateSettings: (updates: Partial<GlobalSettings>) => void
 }
 
+type PluginThemeLabelCollisions = {
+  labels: ReadonlySet<string>
+  ownerLabels: ReadonlySet<string>
+}
 
-function getDuplicatePluginThemeLabels(
+function getPluginThemeLabelCollisions(
   builtIns: readonly { name: string }[],
   plugins: readonly PluginEditorThemeRegistration[]
-): ReadonlySet<string> {
+): PluginThemeLabelCollisions {
   const countByLabel = new Map<string, number>()
+  const countByOwnerLabel = new Map<string, number>()
   for (const theme of builtIns) {
     countByLabel.set(theme.name, (countByLabel.get(theme.name) ?? 0) + 1)
   }
   for (const theme of plugins) {
     countByLabel.set(theme.label, (countByLabel.get(theme.label) ?? 0) + 1)
+    const ownerLabel = `${theme.pluginKey}\0${theme.label}`
+    countByOwnerLabel.set(ownerLabel, (countByOwnerLabel.get(ownerLabel) ?? 0) + 1)
   }
 
-  const duplicates = new Set<string>()
+  const labels = new Set<string>()
   for (const [label, count] of countByLabel) {
     if (count > 1) {
-      duplicates.add(label)
+      labels.add(label)
     }
   }
-  return duplicates
+  const ownerLabels = new Set<string>()
+  for (const [ownerLabel, count] of countByOwnerLabel) {
+    if (count > 1) {
+      ownerLabels.add(ownerLabel)
+    }
+  }
+  return { labels, ownerLabels }
+}
+
+function getPluginThemeOptionLabel(
+  theme: PluginEditorThemeRegistration,
+  collisions: PluginThemeLabelCollisions
+): string {
+  if (!collisions.labels.has(theme.label)) {
+    return theme.label
+  }
+  return collisions.ownerLabels.has(`${theme.pluginKey}\0${theme.label}`)
+    ? `${theme.label} — ${theme.id}`
+    : `${theme.label} — ${theme.pluginKey}`
 }
 
 /**
@@ -55,6 +81,8 @@ export function EditorThemeSetting({
   updateSettings
 }: EditorThemeSettingProps): React.JSX.Element {
   usePluginEditorThemeRuntime()
+  const { i18n } = useTranslation()
+  const activeLocale = i18n.language
   const pluginThemes = usePluginEditorThemeOptions()
   const themesSettled = usePluginEditorThemeStore(
     (state) =>
@@ -70,21 +98,21 @@ export function EditorThemeSetting({
     () => pluginThemes.filter((theme) => matchesEditorThemeFamily(theme.mode, 'light')),
     [pluginThemes]
   )
-  const darkDuplicateLabels = useMemo(
-    () => getDuplicatePluginThemeLabels(DARK_EDITOR_THEMES, darkPluginThemes),
+  const darkLabelCollisions = useMemo(
+    () => getPluginThemeLabelCollisions(DARK_EDITOR_THEMES, darkPluginThemes),
     [darkPluginThemes]
   )
-  const lightDuplicateLabels = useMemo(
-    () => getDuplicatePluginThemeLabels(LIGHT_EDITOR_THEMES, lightPluginThemes),
+  const lightLabelCollisions = useMemo(
+    () => getPluginThemeLabelCollisions(LIGHT_EDITOR_THEMES, lightPluginThemes),
     [lightPluginThemes]
   )
   const darkSearchKeywords = useMemo(
     () => getEditorThemeSearchKeywords(pluginThemes, 'dark'),
-    [pluginThemes]
+    [pluginThemes, activeLocale]
   )
   const lightSearchKeywords = useMemo(
     () => getEditorThemeSearchKeywords(pluginThemes, 'light'),
-    [pluginThemes]
+    [pluginThemes, activeLocale]
   )
 
   const darkThemeTitle = translate(
@@ -148,11 +176,7 @@ export function EditorThemeSetting({
               onValueChange={(value) => updateSettings({ editorThemeDark: value })}
             >
               <SelectTrigger className="w-[200px]" aria-label={darkThemeTitle}>
-                {darkUnavailableLabel ? (
-                  <span className="truncate">{darkUnavailableLabel}</span>
-                ) : (
-                  <SelectValue />
-                )}
+                <SelectValue>{darkUnavailableLabel ?? undefined}</SelectValue>
                 {!themesSettled ? (
                   <span className="ml-2 text-xs text-muted-foreground">{loadingLabel}</span>
                 ) : null}
@@ -165,10 +189,7 @@ export function EditorThemeSetting({
                 ))}
                 {darkPluginThemes.map((theme) => (
                   <SelectItem key={theme.id} value={theme.id}>
-                    {theme.label}
-                    {darkDuplicateLabels.has(theme.label) ? (
-                      <span className="text-muted-foreground"> — {theme.pluginKey}</span>
-                    ) : null}
+                    {getPluginThemeOptionLabel(theme, darkLabelCollisions)}
                   </SelectItem>
                 ))}
                 {darkUnavailableLabel ? (
@@ -196,11 +217,7 @@ export function EditorThemeSetting({
               onValueChange={(value) => updateSettings({ editorThemeLight: value })}
             >
               <SelectTrigger className="w-[200px]" aria-label={lightThemeTitle}>
-                {lightUnavailableLabel ? (
-                  <span className="truncate">{lightUnavailableLabel}</span>
-                ) : (
-                  <SelectValue />
-                )}
+                <SelectValue>{lightUnavailableLabel ?? undefined}</SelectValue>
                 {!themesSettled ? (
                   <span className="ml-2 text-xs text-muted-foreground">{loadingLabel}</span>
                 ) : null}
@@ -213,10 +230,7 @@ export function EditorThemeSetting({
                 ))}
                 {lightPluginThemes.map((theme) => (
                   <SelectItem key={theme.id} value={theme.id}>
-                    {theme.label}
-                    {lightDuplicateLabels.has(theme.label) ? (
-                      <span className="text-muted-foreground"> — {theme.pluginKey}</span>
-                    ) : null}
+                    {getPluginThemeOptionLabel(theme, lightLabelCollisions)}
                   </SelectItem>
                 ))}
                 {lightUnavailableLabel ? (

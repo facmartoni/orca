@@ -166,6 +166,11 @@ export function ensurePluginEditorThemesLoaded(): void {
         void refreshPluginEditorThemes()
       }
     })
+    // Reacquisition may follow an HMR gap where plugins:changed was missed.
+    // Refresh the authoritative snapshot unless a request already covers that gap.
+    if (state.pending.generation > 0 && !joinsCurrentRequest) {
+      void refreshPluginEditorThemes()
+    }
   }
 }
 

@@ -28,7 +28,10 @@ function pluginTheme(): PluginEditorThemeRegistration {
       base: 'vs-dark',
       inherit: true,
       rules: [],
-      colors: {}
+      colors: {
+        'editor.background': '#0a0614',
+        'editor.foreground': '#f0e7f3'
+      }
     }
   }
 }

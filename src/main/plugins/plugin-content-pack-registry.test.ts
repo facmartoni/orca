@@ -15,7 +15,10 @@ const validEditorTheme = {
   base: 'vs-dark',
   inherit: true,
   rules: [{ token: 'comment', foreground: '8a9aa8' }],
-  colors: { 'editor.background': '#0a0614' }
+  colors: {
+    'editor.background': '#0a0614',
+    'editor.foreground': '#f0e7f3'
+  }
 }
 
 afterEach(async () => {

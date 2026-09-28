@@ -68,7 +68,10 @@ async function editorThemeRoot(pluginManifest: PluginManifest): Promise<string> 
         base: 'vs-dark',
         inherit: true,
         rules: [{ token: 'comment', foreground: '8a9aa8' }],
-        colors: { 'editor.background': '#0a0614' }
+        colors: {
+          'editor.background': '#0a0614',
+          'editor.foreground': '#f0e7f3'
+        }
       })
     )
   ])
@@ -515,7 +518,10 @@ describe('PluginService worker reconciliation', () => {
         localId: 'robbydev',
         mode: 'dark',
         data: {
-          colors: { 'editor.background': '#0a0614' }
+          colors: {
+          'editor.background': '#0a0614',
+          'editor.foreground': '#f0e7f3'
+        }
         }
       }
     ])
