@@ -412,10 +412,12 @@ describe('plugin editor themes in Settings', () => {
   it('leaves loading for fallback when the lazy runtime reaches terminal failure', () => {
     const registration = pluginTheme('failed-runtime', 'dark', 'Failed Runtime')
     publishThemeOptions([registration], 12, [registration], 11, true, 'loading')
+    const { container } = renderSetting({ editorThemeDark: registration.id })
+    expect(container.textContent).toMatch(/loading/i)
+
     act(() => markPluginEditorThemeRuntimeFailed())
 
     expect(usePluginEditorThemeStore.getState().active.all).toEqual([])
-    const { container } = renderSetting({ editorThemeDark: registration.id })
     const darkSelect = container.querySelectorAll('[data-slot="select"]')[0]!
     const unavailable = darkSelect.querySelector<HTMLButtonElement>(
       `button[data-value="${registration.id}"]`
