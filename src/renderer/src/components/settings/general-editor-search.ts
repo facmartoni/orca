@@ -43,7 +43,26 @@ export const getGeneralEditorSearchEntries = createLocalizedCatalog(() => [
       ...translateSearchKeyword('auto.components.settings.general.search.e1ee631696', 'editor'),
       ...translateSearchKeyword('auto.components.settings.general.search.themeKw', 'theme'),
       ...translateSearchKeyword('auto.components.settings.general.search.darkKw', 'dark'),
-      ...translateSearchKeyword('auto.components.settings.general.search.monacoKw', 'monaco')
+      ...translateSearchKeyword('auto.components.settings.general.search.monacoKw', 'monaco'),
+      ...translateSearchKeyword('auto.components.settings.general.search.syntaxKw', 'syntax'),
+      ...translateSearchKeyword('auto.components.settings.general.search.3b5733573e', 'diff'),
+      ...translateSearchKeyword('auto.components.settings.general.search.draculaKw', 'dracula'),
+      ...translateSearchKeyword('auto.components.settings.general.search.oneDarkKw', 'one dark'),
+      ...translateSearchKeyword('auto.components.settings.general.search.nordKw', 'nord'),
+      ...translateSearchKeyword(
+        'auto.components.settings.general.search.tokyoNightKw',
+        'tokyo night'
+      ),
+      ...translateSearchKeyword(
+        'auto.components.settings.general.search.catppuccinKw',
+        'catppuccin'
+      ),
+      ...translateSearchKeyword('auto.components.settings.general.search.monokaiKw', 'monokai'),
+      ...translateSearchKeyword('auto.components.settings.general.search.solarizedKw', 'solarized'),
+      ...translateSearchKeyword(
+        'auto.components.settings.general.search.githubDarkKw',
+        'github dark'
+      )
     ]
   },
   {
@@ -59,7 +78,22 @@ export const getGeneralEditorSearchEntries = createLocalizedCatalog(() => [
       ...translateSearchKeyword('auto.components.settings.general.search.e1ee631696', 'editor'),
       ...translateSearchKeyword('auto.components.settings.general.search.themeKw', 'theme'),
       ...translateSearchKeyword('auto.components.settings.general.search.lightKw', 'light'),
-      ...translateSearchKeyword('auto.components.settings.general.search.monacoKw', 'monaco')
+      ...translateSearchKeyword('auto.components.settings.general.search.monacoKw', 'monaco'),
+      ...translateSearchKeyword('auto.components.settings.general.search.syntaxKw', 'syntax'),
+      ...translateSearchKeyword('auto.components.settings.general.search.3b5733573e', 'diff'),
+      ...translateSearchKeyword('auto.components.settings.general.search.oneLightKw', 'one light'),
+      ...translateSearchKeyword(
+        'auto.components.settings.general.search.catppuccinKw',
+        'catppuccin'
+      ),
+      ...translateSearchKeyword(
+        'auto.components.settings.general.search.githubLightKw',
+        'github light'
+      ),
+      ...translateSearchKeyword(
+        'auto.components.settings.general.search.solarizedLightKw',
+        'solarized light'
+      )
     ]
   },
   {

@@ -16,3 +16,22 @@ describe('collapse unchanged settings search', () => {
     }
   )
 })
+
+describe('editor theme settings search', () => {
+  it.each([
+    'dracula',
+    'nord',
+    'one dark',
+    'tokyo night',
+    'catppuccin',
+    'monokai',
+    'solarized',
+    'one light',
+    'github dark',
+    'github light'
+  ])('keeps the editor theme setting reachable through both search gates for "%s"', (query) => {
+    const editorEntries = getGeneralEditorSearchEntries()
+    expect(matchesSettingsSearch(query, editorEntries)).toBe(true)
+    expect(matchesSettingsSearch(query, getGeneralPaneSearchEntries())).toBe(true)
+  })
+})

@@ -57,6 +57,9 @@ export function EditorThemeSetting({
           'nord',
           'tokyo night',
           'catppuccin',
+          'monokai',
+          'solarized',
+          'github dark',
           'diff'
         ]}
       >
@@ -94,7 +97,9 @@ export function EditorThemeSetting({
           'syntax',
           'diff',
           'one light',
-          'catppuccin'
+          'catppuccin',
+          'github light',
+          'solarized light'
         ]}
       >
         <SettingsRow
