@@ -2,6 +2,49 @@ import { translate } from '@/i18n/i18n'
 import { translateSearchKeyword } from './settings-search-keywords'
 import { createLocalizedCatalog } from '@/i18n/localized-catalog'
 
+export function getDarkEditorThemeSearchKeywords(): string[] {
+  return [
+    ...translateSearchKeyword('auto.components.settings.general.search.e1ee631696', 'editor'),
+    ...translateSearchKeyword('auto.components.settings.general.search.themeKw', 'theme'),
+    ...translateSearchKeyword('auto.components.settings.general.search.darkKw', 'dark'),
+    ...translateSearchKeyword('auto.components.settings.general.search.monacoKw', 'monaco'),
+    ...translateSearchKeyword('auto.components.settings.general.search.syntaxKw', 'syntax'),
+    ...translateSearchKeyword('auto.components.settings.general.search.3b5733573e', 'diff'),
+    ...translateSearchKeyword('auto.components.settings.general.search.draculaKw', 'dracula'),
+    ...translateSearchKeyword('auto.components.settings.general.search.oneDarkKw', 'one dark'),
+    ...translateSearchKeyword('auto.components.settings.general.search.nordKw', 'nord'),
+    ...translateSearchKeyword(
+      'auto.components.settings.general.search.tokyoNightKw',
+      'tokyo night'
+    ),
+    ...translateSearchKeyword('auto.components.settings.general.search.catppuccinKw', 'catppuccin'),
+    ...translateSearchKeyword('auto.components.settings.general.search.monokaiKw', 'monokai'),
+    ...translateSearchKeyword('auto.components.settings.general.search.solarizedKw', 'solarized'),
+    ...translateSearchKeyword('auto.components.settings.general.search.githubDarkKw', 'github dark')
+  ]
+}
+
+export function getLightEditorThemeSearchKeywords(): string[] {
+  return [
+    ...translateSearchKeyword('auto.components.settings.general.search.e1ee631696', 'editor'),
+    ...translateSearchKeyword('auto.components.settings.general.search.themeKw', 'theme'),
+    ...translateSearchKeyword('auto.components.settings.general.search.lightKw', 'light'),
+    ...translateSearchKeyword('auto.components.settings.general.search.monacoKw', 'monaco'),
+    ...translateSearchKeyword('auto.components.settings.general.search.syntaxKw', 'syntax'),
+    ...translateSearchKeyword('auto.components.settings.general.search.3b5733573e', 'diff'),
+    ...translateSearchKeyword('auto.components.settings.general.search.oneLightKw', 'one light'),
+    ...translateSearchKeyword('auto.components.settings.general.search.catppuccinKw', 'catppuccin'),
+    ...translateSearchKeyword(
+      'auto.components.settings.general.search.githubLightKw',
+      'github light'
+    ),
+    ...translateSearchKeyword(
+      'auto.components.settings.general.search.solarizedLightKw',
+      'solarized light'
+    )
+  ]
+}
+
 /** Localized search entries for general editor settings. */
 export const getGeneralEditorSearchEntries = createLocalizedCatalog(() => [
   {
@@ -39,31 +82,7 @@ export const getGeneralEditorSearchEntries = createLocalizedCatalog(() => [
       'auto.components.settings.general.search.editorThemeDarkDesc',
       'Theme used by file editors and diff viewers when Orca is in dark mode.'
     ),
-    keywords: [
-      ...translateSearchKeyword('auto.components.settings.general.search.e1ee631696', 'editor'),
-      ...translateSearchKeyword('auto.components.settings.general.search.themeKw', 'theme'),
-      ...translateSearchKeyword('auto.components.settings.general.search.darkKw', 'dark'),
-      ...translateSearchKeyword('auto.components.settings.general.search.monacoKw', 'monaco'),
-      ...translateSearchKeyword('auto.components.settings.general.search.syntaxKw', 'syntax'),
-      ...translateSearchKeyword('auto.components.settings.general.search.3b5733573e', 'diff'),
-      ...translateSearchKeyword('auto.components.settings.general.search.draculaKw', 'dracula'),
-      ...translateSearchKeyword('auto.components.settings.general.search.oneDarkKw', 'one dark'),
-      ...translateSearchKeyword('auto.components.settings.general.search.nordKw', 'nord'),
-      ...translateSearchKeyword(
-        'auto.components.settings.general.search.tokyoNightKw',
-        'tokyo night'
-      ),
-      ...translateSearchKeyword(
-        'auto.components.settings.general.search.catppuccinKw',
-        'catppuccin'
-      ),
-      ...translateSearchKeyword('auto.components.settings.general.search.monokaiKw', 'monokai'),
-      ...translateSearchKeyword('auto.components.settings.general.search.solarizedKw', 'solarized'),
-      ...translateSearchKeyword(
-        'auto.components.settings.general.search.githubDarkKw',
-        'github dark'
-      )
-    ]
+    keywords: getDarkEditorThemeSearchKeywords()
   },
   {
     title: translate(
@@ -74,27 +93,7 @@ export const getGeneralEditorSearchEntries = createLocalizedCatalog(() => [
       'auto.components.settings.general.search.editorThemeLightDesc',
       'Theme used by file editors and diff viewers when Orca is in light mode.'
     ),
-    keywords: [
-      ...translateSearchKeyword('auto.components.settings.general.search.e1ee631696', 'editor'),
-      ...translateSearchKeyword('auto.components.settings.general.search.themeKw', 'theme'),
-      ...translateSearchKeyword('auto.components.settings.general.search.lightKw', 'light'),
-      ...translateSearchKeyword('auto.components.settings.general.search.monacoKw', 'monaco'),
-      ...translateSearchKeyword('auto.components.settings.general.search.syntaxKw', 'syntax'),
-      ...translateSearchKeyword('auto.components.settings.general.search.3b5733573e', 'diff'),
-      ...translateSearchKeyword('auto.components.settings.general.search.oneLightKw', 'one light'),
-      ...translateSearchKeyword(
-        'auto.components.settings.general.search.catppuccinKw',
-        'catppuccin'
-      ),
-      ...translateSearchKeyword(
-        'auto.components.settings.general.search.githubLightKw',
-        'github light'
-      ),
-      ...translateSearchKeyword(
-        'auto.components.settings.general.search.solarizedLightKw',
-        'solarized light'
-      )
-    ]
+    keywords: getLightEditorThemeSearchKeywords()
   },
   {
     title: translate(

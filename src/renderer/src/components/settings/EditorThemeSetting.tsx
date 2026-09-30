@@ -10,6 +10,10 @@ import {
   DEFAULT_EDITOR_THEME_LIGHT,
   LIGHT_EDITOR_THEMES
 } from '@/lib/monaco-themes'
+import {
+  getDarkEditorThemeSearchKeywords,
+  getLightEditorThemeSearchKeywords
+} from './general-editor-search'
 
 type EditorThemeSettingProps = {
   settings: GlobalSettings
@@ -46,22 +50,7 @@ export function EditorThemeSetting({
       <SearchableSetting
         title={darkThemeTitle}
         description={darkThemeDescription}
-        keywords={[
-          'editor',
-          'theme',
-          'dark',
-          'monaco',
-          'syntax',
-          'dracula',
-          'one dark',
-          'nord',
-          'tokyo night',
-          'catppuccin',
-          'monokai',
-          'solarized',
-          'github dark',
-          'diff'
-        ]}
+        keywords={getDarkEditorThemeSearchKeywords()}
       >
         <SettingsRow
           label={darkThemeTitle}
@@ -89,18 +78,7 @@ export function EditorThemeSetting({
       <SearchableSetting
         title={lightThemeTitle}
         description={lightThemeDescription}
-        keywords={[
-          'editor',
-          'theme',
-          'light',
-          'monaco',
-          'syntax',
-          'diff',
-          'one light',
-          'catppuccin',
-          'github light',
-          'solarized light'
-        ]}
+        keywords={getLightEditorThemeSearchKeywords()}
       >
         <SettingsRow
           label={lightThemeTitle}
