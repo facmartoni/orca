@@ -1,6 +1,6 @@
 import { useAppStore } from '@/store'
 import { resolveEditorTheme } from '@/lib/monaco-themes'
-import { useDocumentDarkTheme } from './use-document-dark-theme'
+import { useDocumentDarkTheme } from '@/hooks/use-document-dark-theme'
 
 /**
  * Returns the active Monaco editor theme id, dynamically updating

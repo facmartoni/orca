@@ -16,7 +16,7 @@ vi.mock('@/store', () => ({
     selector({ settings: mockSettings })
 }))
 
-vi.mock('./use-document-dark-theme', () => ({
+vi.mock('@/hooks/use-document-dark-theme', () => ({
   useDocumentDarkTheme: () => mockIsDark
 }))
 

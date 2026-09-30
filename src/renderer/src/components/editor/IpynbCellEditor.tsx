@@ -12,7 +12,7 @@ import {
 import type { IpynbCell } from './ipynb-parse'
 import { MarkdownPreviewBody } from './MarkdownPreviewBody'
 import { useMonacoColorizedLines } from './MonacoCodeExcerpt'
-import { useDocumentDarkTheme } from './use-document-dark-theme'
+import { useDocumentDarkTheme } from '@/hooks/use-document-dark-theme'
 import { useEditorTheme } from './use-editor-theme'
 
 const NO_MARKDOWN_COMPONENTS: Components = {}

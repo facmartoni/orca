@@ -5,7 +5,6 @@ import { useWorkspaceFileBrowserActionPredicate } from '@/lib/file-preview'
 import { selectWorktreeDiffCommentsOrEmpty } from '@/store/worktree-diff-comments-selector'
 import type { OpenFile } from '@/store/slices/editor'
 import '@/lib/monaco-setup'
-import { useDocumentDarkTheme } from '../use-document-dark-theme'
 import type { DiffSection } from '../diff-section-types'
 import {
   EMPTY_GIT_BRANCH_ENTRIES,
@@ -39,6 +38,7 @@ import {
 import { useCombinedDiffNotesActions } from './review-controls/use-combined-diff-notes-actions'
 import { useCombinedDiffSectionActions } from './review-controls/use-combined-diff-section-actions'
 import { useCombinedDiffViewPreferences } from './review-controls/use-combined-diff-view-preferences'
+import { useDocumentDarkTheme } from '@/hooks/use-document-dark-theme'
 
 export default function CombinedDiffViewer({
   file,
